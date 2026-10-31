@@ -1,0 +1,111 @@
+# =============================================================================
+# Configuración base del pasteurizador (v0)
+#
+# Unidades prácticas acá (kg/h, °C, min, bar). El código pasa todo a SI al
+# cargar, salvo las temperaturas, que quedan en °C porque así están escritas
+# todas las correlaciones de propiedades. Las diferencias de T valen igual en K.
+#
+# Entre corchetes, la clave de la fuente en docs/fuentes.bib.
+# =============================================================================
+
+productos:
+
+  HP:                                   # huevo entero
+    nombre: Huevo entero
+    caudal_kg_h: 798                    # balance de masa del grupo (RESUMEN.xlsx)
+    T_entrada_C: 10                     # diseño; rango de operación 10–25 °C
+    T_entrada_rango_C: [10, 25]
+    T_holding_C: 60.0                   # safe harbor [fsis2026guideline], [rbn1994cap15]
+    t_holding_min: 3.5
+    T_salida_C: 45                      # salida al secador; más frío se acepta (31/10)
+    T_max_agua_C: 63                    # tope de T de pared en calentamiento
+    composicion:                        # fracción másica; balance del grupo, Tabla 2
+      agua: 0.7651
+      proteina: 0.126
+      grasa: 0.100
+      carbohidratos: 0.003
+      cenizas: 0.0059
+    termicas: choi_okos                 # [choi1986thermal]
+    reologia: leon_munguia_huevo_entero # [leonmunguia_tesis]
+    cinetica: {D_ref_min: 1.25, T_ref_C: 60.0, z_C: 4.84}   # derivado de [fsis2026guideline], Ap. III
+    horas_anio: 2496
+
+  YP:                                   # yema
+    nombre: Yema
+    caudal_kg_h: 1083
+    T_entrada_C: 7                      # tanque a 7 °C [fsis2026guideline]
+    T_entrada_rango_C: [7, 7.2]
+    T_holding_C: 61.1                   # safe harbor [fsis2026guideline]
+    t_holding_min: 3.5
+    T_salida_C: 45
+    T_max_agua_C: 64
+    composicion:                        # yema comercial, USDA vía [froning2002manual], Tabla 1
+      agua: 0.562
+      proteina: 0.155
+      grasa: 0.256
+      carbohidratos: 0.0115
+      cenizas: 0.0155
+    termicas: choi_okos                 # alternativa: gut2003_yema (medidas; cp ~17 % menor)
+    reologia: gut2003_yema              # tablas 4 y 5 de [gut2003yolk]
+    cinetica: {D_ref_min: 1.68, T_ref_C: 61.1, z_C: 7.31}   # derivado de [fsis2026guideline], Ap. III
+    horas_anio: 168
+
+  CP:                                   # clara concentrada por UF (23 % de sólidos)
+    nombre: Clara concentrada
+    caudal_kg_h: 822.4
+    T_entrada_C: 35                     # salida de la UF (dato SANOVO)
+    T_entrada_rango_C: [35, 35]
+    T_holding_C: 60.0                   # [rbn1994cap15] 15.2.11, con alumbre
+    t_holding_min: 3.5
+    T_salida_C: 45
+    T_max_agua_C: 62
+    composicion:
+      agua: 0.77
+      proteina: 0.203
+      grasa: 0.0006
+      carbohidratos: 0.0148
+      cenizas: 0.0116
+    termicas: choi_okos
+    reologia: clara_uf_thapon_scalzo    # 9,3 mPa·s a 30 °C [thapon1981]; forma μ(T) de [scalzo1970viscosity]
+    cinetica: {D_ref_min: 0.136, T_ref_C: 60.0, z_C: 2.62}  # pH 7,8 [fsis2026guideline]; a pH 7 es extrapolación
+    horas_anio: 216
+
+equipo:
+  placa:                                # placa chevron "típica", dentro de rangos de libro
+    area_m2: 0.15                       # [shah2003fundamentals], [kakac2012heat]
+    ancho_m: 0.20                       # sin uso en v0
+    separacion_b_m: 0.003               # sin uso en v0
+    angulo_chevron_grados: 45           # sin uso en v0
+    factor_area: 1.17                   # sin uso en v0
+    espesor_m: 0.0005                   # sin uso en v0
+    k_W_mK: 16.3                        # AISI 316L; sin uso en v0
+
+  # v0: U fijo por sección, tomado del caso de yema de [gut2003yolk], Tabla 7
+  # (contracorriente pura). En v1 se reemplaza por correlaciones de h.
+  U_fijo_W_m2K:
+    regeneracion: 756
+    calentamiento: 864
+
+  holding:
+    DN_diam_int_m: {25: 0.026, 32: 0.032, 40: 0.038, 50: 0.050, 65: 0.066}   # [din11850], serie 2
+    DN_diam_ext_m: {25: 0.029, 32: 0.035, 40: 0.041, 50: 0.053, 65: 0.070}
+    geometria:
+      tipo: espiral                     # espiral | recto. Con ~100 m nadie lo instala recto
+      diam_espiral_m: 1.0               # diámetro de la hélice, al eje del tubo (supuesto)
+      separacion_vueltas_m: 0.01        # luz entre vueltas
+    # Sensibilidad: largo y Δp si el ensayo de trazador midiera una partícula
+    # rápida más lenta que la de tubo recto. NO cambia el diseño.
+    factores_sensibilidad: [1.8, 1.6, 1.4, 1.25]
+    perdida_T_C: 0.5                    # caída de T en el tubo aislado
+    dp_max_bar: 1.0                     # cota inferior del DN: bomba y juntas
+    v_CIP_min_m_s: 1.5                  # velocidad de limpieza en cañería [tamime2008cip]
+
+servicios:
+  agua_caliente:
+    DT_C: 4                             # salto del agua en calentamiento
+
+criterios:
+  Re_critico: 2100                      # fin del laminar en cañería
+  Re_turbulento: 4000                   # entre ambos: transición; se usa el factor laminar (conservador)
+  factor_turbulento_vmax: 1.25          # v_max/v_media en turbulento (supuesto)
+  logs_objetivo: 5                      # criterio de desempeño [fsis2020rule]

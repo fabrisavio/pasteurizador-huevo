@@ -1,0 +1,21 @@
+# Entorno de Python (se reconstruye con pip install -e ".[dev]")
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+
+# Resultados (se regeneran con python correr.py)
+resultados/
+
+# Papers y planillas del grupo: se citan, no se versionan
+*.pdf
+*.xlsx
+*.docx
+
+# Ruido del sistema y del editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

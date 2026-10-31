@@ -1,0 +1,596 @@
+% =====================================================================
+% Bibliografía del diseño del pasteurizador
+% Proyecto Industrial Q57 — Planta de huevo en polvo (FIng, UdelaR)
+% Generado: 2026-10-17 · biblatex + Biber · estilo APA
+% Acompaña a: registro_fuentes_pasteurizador.xlsx (qué dato sale de cada fuente)
+%
+% CONVENCIÓN (va en el comentario arriba de cada entrada):
+%   [PRIMARIA]    leída por el equipo           -> \parencite{clave}
+%   [SECUNDARIA]  solo la leyeron citada dentro de otra fuente. En el texto:
+%                 "Autor (año, como se citó en \textcite{fuente_que_leyeron})".
+%                 NO hacer \cite de la secundaria hasta tener el original
+%                 (APA 7: en la lista de referencias va solo la fuente leída).
+%                 Las entradas existen para cuando consigan el original.
+%   [A CONSULTAR] identificada como necesaria, todavía no leída.
+%   [VERIFICAR]   algún dato editorial no está confirmado.
+%
+% CLAVES QUE PROBABLEMENTE YA EXISTEN EN EL .bib DEL INFORME:
+%   stadelman1995egg (crossref de cunningham1995pasteurization),
+%   Decreto 315/994 (acá: rbn1994cap15), Lechevalier et al. (2013),
+%   Gut et al. (2003), USDA FSIS (2026), Froning et al. (manual AEB).
+%   Unifiquen claves antes de mezclar archivos para no duplicar entradas.
+% =====================================================================
+
+
+% ---------------------------------------------------------------------
+% 1. NORMATIVA Y GUÍAS REGULATORIAS
+% ---------------------------------------------------------------------
+
+% [PRIMARIA] Archivo: RBN.pdf. Vinculante en Uruguay.
+% Usado: 15.2.11 (60 °C, 3,5 min para huevo líquido o sus componentes),
+% 15.2.7 (pH clara 7,9-9,6; yema 6,1-6,9; Salmonella ausencia en 20 g),
+% 15.2.6 (humedades), 15.2.10 (desazucarado), lista positiva de aditivos
+% del cap. 15 (alumbre INS 522 <= 200 mg/kg en huevo en polvo).
+@misc{rbn1994cap15,
+  author       = {{Presidencia de la República Oriental del Uruguay}},
+  title        = {Reglamento Bromatológico Nacional (Decreto N.º 315/994). Capítulo 15: Huevos y derivados},
+  date         = {1994},
+  url          = {https://www.impo.com.uy/bases/decretos-reglamento/315-1994},
+}
+
+% [PRIMARIA] Archivo: "FSIS. FSIS Food Safety Guideline for Egg Products.pdf" (versión mayo 2026).
+% Usado: criterio 5 log (p. 17); Tabla 1 safe harbors (p. 17-18); clara 56,7 °C/3,5 min
+% excluida de Tabla 1 y solo condicional (p. 18-19); Tabla 2 enfriamiento (p. 19-20);
+% Apéndice III, Tablas III.A-C (p. 39-41): de acá se derivan D y z de los tres productos.
+@report{fsis2026guideline,
+  author       = {{United States Department of Agriculture, Food Safety and Inspection Service}},
+  title        = {FSIS food safety guideline for egg products},
+  date         = {2026-05},
+  institution  = {USDA FSIS},
+  type         = {Guía técnica},
+}
+
+% [PRIMARIA, web] Texto consolidado vigente del cap. 15 (consultado el 30/10/2026). Sin notas de modificación.
+% Sigue exigiendo 60 °C x 3,5 min (15.2.11). Lista positiva: alumbre (INS 522) 200 mg/kg en huevos en polvo,
+% SIN aclarar si el límite se expresa como aditivo o como aluminio.
+@online{impo2026rbncap15,
+  author       = {{IMPO}},
+  title        = {Reglamento Bromatológico Nacional, Decreto N.º 315/994, Capítulo 15: Huevos y derivados (texto vigente)},
+  url          = {https://www.impo.com.uy/bases/decretos-reglamento/315-1994/15},
+  urldate      = {2026-10-30},
+}
+
+% [PRIMARIA, web] Borrador de nuevo cap. 15 (MSP, sin fecha, publicado en 2019-02). Define la pasteurización
+% sin T-t fija ("cada partícula ... sometido a un calentamiento" en equipo "diseñado y operado apropiadamente")
+% y remite a "aditivos autorizados". No hay evidencia de que se haya aprobado.
+@online{msp2019cap15consulta,
+  author       = {{Ministerio de Salud Pública}},
+  title        = {Capítulo 15: Huevos y derivados. Consulta pública},
+  date         = {2019},
+  url          = {https://www.gub.uy/ministerio-salud-publica/sites/ministerio-salud-publica/files/2019-02/Cap%C3%ADtulo_15_-_CONSULTA_P%C3%9ABLICA_-_HUEVOS_Y_DERIVADOS%29.pdf},
+  urldate      = {2026-10-30},
+}
+
+% [PRIMARIA, web] Codex: exige tratamientos microbicidas VALIDADOS, sin T-t fija.
+@manual{codex2007eggs,
+  author       = {{Codex Alimentarius Commission}},
+  title        = {Código de prácticas de higiene para los huevos y los productos de huevo ({CAC/RCP} 15-1976, rev. 2007)},
+  organization = {FAO/OMS},
+  date         = {2007},
+}
+
+% [SECUNDARIA, vía base DECODE (IPB)] UE: E 520-523 en la categoría 10.2 (huevos y ovoproductos transformados),
+% 30 mg/kg EXPRESADO COMO ALUMINIO, solo clara. Si se cita, verificar en el texto oficial del Anexo II.
+@misc{eu1333annexII,
+  author       = {{Unión Europea}},
+  title        = {Reglamento ({CE}) N.º 1333/2008, Anexo {II}, categoría 10.2: {E} 520--523 sulfatos de aluminio},
+  note         = {Consultado vía https://decode.ipb.pt/foodcategories/10.2},
+  urldate      = {2026-10-30},
+}
+
+% [PRIMARIA, web] Regla que reemplazó las tablas T-t por un estándar de desempeño.
+% 590.570(b) y 590.575: vigentes desde el 31/10/2022.
+@article{fsis2020rule,
+  author       = {{Food Safety and Inspection Service}},
+  title        = {Egg products inspection regulations},
+  journaltitle = {Federal Register},
+  volume       = {85},
+  number       = {210},
+  pages        = {68640--68685},
+  date         = {2020-10-29},
+  url          = {https://www.federalregister.gov/documents/2020/10/29/2020-20151/egg-products-inspection-regulations},
+}
+
+% [PRIMARIA] Archivo: CFR-2022-title9-vol2-sec590-575.pdf. Texto histórico + notas de vigencia.
+% Usado: Tabla I histórica; 590.570(b) "every particle ... held ... for the required minimum
+% holding time" (respaldo del criterio de partícula más rápida); 590.575 hot room (derogado 2022).
+@misc{cfr2022sec590,
+  author       = {{Office of the Federal Register}},
+  title        = {9 C.F.R. §§ 590.570--590.575: Pasteurization of liquid eggs; Heat treatment of dried whites},
+  date         = {2022},
+  note         = {Code of Federal Regulations, Title 9, Vol. 2, revised as of January 1, 2022},
+  url          = {https://www.govinfo.gov/content/pkg/CFR-2022-title9-vol2/pdf/CFR-2022-title9-vol2-sec590-575.pdf},
+}
+
+% [PRIMARIA, web] Texto vigente: sin enmiendas posteriores a la corrección de dic-2020.
+@online{ecfr2026sec590570,
+  author       = {{Electronic Code of Federal Regulations}},
+  title        = {9 CFR 590.570: Control of pathogens in pasteurized egg products},
+  date         = {2026-10-15},
+  url          = {https://www.ecfr.gov/current/title-9/chapter-III/subchapter-I/part-590/subpart-A/subject-group-ECFR87dab4facc1dd4c},
+  urldate      = {2026-10-17},
+}
+
+
+% ---------------------------------------------------------------------
+% 2. LIBROS, MANUALES Y CAPÍTULOS
+% ---------------------------------------------------------------------
+
+% [PRIMARIA][VERIFICAR AÑO] Archivo: Pasteurization_Manual.pdf.
+% El informe v4 lo cita como 2023, pero sus referencias terminan en 2002 y el PDF se titula
+% "Egg Past. Manual PS (8-23)". Confirmen el año de la edición que tienen.
+% Usado: Tabla 1 composición (USDA ARS 2000); Tabla 3 viscosidad/densidad (Scalzo et al., 1970);
+% Tabla 6 requisitos USDA; Tablas 10 y 19 D de clara vs pH (base de FSIS III.A);
+% métodos para clara (láctico + Al; H2O2; vacío); flujo laminar en holding tube (p. 4).
+@manual{froning2002manual,
+  author       = {Froning, G. W. and Peters, D. and Muriana, P. and Eskridge, K. and Travnicek, D. and Sumner, S. S.},
+  title        = {International egg pasteurization manual},
+  organization = {United Egg Association and American Egg Board},
+  date         = {2002},
+}
+
+% [PRIMARIA] Archivo: "William J Stadelman ... Egg Science and Technology ... 306-338.pdf" (cap. 12).
+% Requiere stadelman1995egg en su .bib (editores Stadelman y Cotterill, 4.ª ed.).
+% Usado: límites funcionales (clara 57 °C; entero 56-66 °C, 73 °C coagulación; entero sin daño
+% < 63 °C/3,5 min, p. 292; yema 60-63 °C sin daño), equipos HTST, flujo en holding tubes (p. 313).
+@incollection{cunningham1995pasteurization,
+  author       = {Cunningham, F. E.},
+  title        = {Egg-product pasteurization},
+  crossref     = {stadelman1995egg},
+  pages        = {289--321},
+}
+
+% [PRIMARIA] Archivo: "Handbook of food powders.pdf" (cap. 19).
+% Usado: 5 reducciones decimales (p. 491); el PHE diseñado para yema sirve para entero y clara
+% (p. 492); clara se seca cruda y se pasteuriza en seco (p. 485, 498); UF 11,5 -> 23 % (p. 491);
+% viscosidad de clara UF (Thapon, 1981) y límite de atomizadores 100-200 mPa·s (p. 491);
+% desazucarado antes o después de concentrar (p. 488); pH líquido > 6 -> polvo >= 8,5 (p. 490).
+@incollection{lechevalier2013powdered,
+  author       = {Lechevalier, V. and Nau, F. and Jeantet, R.},
+  title        = {Powdered egg},
+  booktitle    = {Handbook of food powders: Processes and properties},
+  editor       = {Bhandari, B. and Bansal, N. and Zhang, M. and Schuck, P.},
+  publisher    = {Woodhead Publishing},
+  date         = {2013},
+  pages        = {484--512},
+  doi          = {10.1533/9780857098672.3.484},
+}
+
+% [SECUNDARIA vía gut2003yolk y Paperppps] Referencia de RR típicas y U en pasteurizadores.
+@book{lewis2000continuous,
+  author       = {Lewis, M. and Heppell, N.},
+  title        = {Continuous thermal processing of foods: Pasteurization and UHT sterilization},
+  publisher    = {Aspen Publishers},
+  location     = {Gaithersburg},
+  date         = {2000},
+}
+
+% [A CONSULTAR][VERIFICAR] Propuesto para rho(T), cp(T) y lambda(T) en función de la composición:
+% cubre entero y clara concentrada (incluido el cambio de densidad con % de sólidos) y sirve de
+% chequeo para la yema.
+@incollection{choi1986thermal,
+  author       = {Choi, Y. and Okos, M. R.},
+  title        = {Effects of temperature and composition on the thermal properties of foods},
+  booktitle    = {Food engineering and process applications: Vol. 1. Transport phenomena},
+  editor       = {Le Maguer, M. and Jelen, P.},
+  publisher    = {Elsevier Applied Science},
+  date         = {1986},
+  pages        = {93--101},
+}
+
+
+% ---------------------------------------------------------------------
+% 3. ARTÍCULOS Y PONENCIAS LEÍDOS
+% ---------------------------------------------------------------------
+
+% [PRIMARIA] Archivo: "Gut et al.pdf". Ponencia AIChE 2003, no publicada (sin revisión por pares).
+% Usado: propiedades de yema vs T (Tablas 1-5, ec. 1-5); caso de simulación completo
+% (Fig. 2, Tabla 7) = benchmark de validación.
+% Ojo: la ec. (3) tiene el signo invertido respecto de la Tabla 3; la ec. (4) subestima K un
+% 23-38 % por encima de 48 °C; la densidad (~1130 kg/m3) queda ~10 % alta frente a Scalzo/AEB.
+@inproceedings{gut2003yolk,
+  author       = {Gut, J. A. W. and Pinto, J. M. and Gabas, A. L. and Telis-Romero, J.},
+  title        = {Pasteurization of egg yolk in plate heat exchangers: Thermophysical properties and process simulation},
+  booktitle    = {AIChE Annual Meeting},
+  venue        = {San Francisco, CA},
+  eventdate    = {2003-11-16/2003-11-21},
+  date         = {2003},
+  note         = {Paper 123f. Unpublished},
+}
+
+% [PRIMARIA] Archivo: "CIP en placas.pdf".
+% Usado: caudal mínimo efectivo de CIP en SU instalación (1200 L/h, que equivale a Re ~ 2150);
+% fin de la transición en Re 1200-1500. Lo que se traslada a otro PHE es el Re, no los L/h.
+@article{galinski2025cip,
+  author       = {Galiński, M. and Bieńczak, A. and Ignasiak, Ł. and Kiczek, T. and Michalak, T. and Woźniak, P. and Maziarz, K.},
+  title        = {The influence of flow rate on {CIP} cleaning efficiency and flow resistance in an installation with a three-section {PHE}},
+  journaltitle = {Journal of Research and Applications in Agricultural Engineering},
+  volume       = {70},
+  number       = {1},
+  pages        = {39--47},
+  date         = {2025},
+  doi          = {10.53502/jraae-196494},
+}
+
+
+% ---------------------------------------------------------------------
+% 4. FUENTES SECUNDARIAS (leídas dentro de otra fuente)
+%    En el texto: "Autor (año, como se citó en \textcite{...})"
+% ---------------------------------------------------------------------
+
+% [SECUNDARIA vía froning2002manual, Tabla 3] Viscosidad y densidad 5-60 °C de productos
+% comerciales de 3 proveedores. Viscosímetro capilar (una viscosidad aparente, sin tasa de corte).
+% Error de tipeo en la tabla: yema "California" a 60 °C = 0 cP.
+@article{scalzo1970viscosity,
+  author       = {Scalzo, A. M. and Dickerson, Jr., R. W. and Peeler, J. T. and Read, Jr., R. B.},
+  title        = {The viscosity of egg and egg products},
+  journaltitle = {Food Technology},
+  volume       = {24},
+  number       = {11},
+  pages        = {113--119},
+  date         = {1970},
+}
+
+% [SECUNDARIA vía lechevalier2013powdered, p. 491] Viscosidad de clara de UF: 8,03 mPa·s
+% (21,7 % ms) y 16,5 mPa·s (28 % ms) a 30 °C.
+@thesis{thapon1981,
+  author       = {Thapon, J. L.},
+  title        = {Effets de divers facteurs sur les propriétés physico-chimiques et fonctionnelles du blanc d'{\oe}uf},
+  type         = {phdthesis},
+  institution  = {École nationale supérieure agronomique de Rennes},
+  date         = {1981},
+}
+
+% [SECUNDARIA vía froning2002manual] D de yema a 61,1 °C = 0,57 min (método de viales).
+@article{palumbo1995yolk,
+  author       = {Palumbo, M. S. and Beers, S. M. and Bhaduri, S. and Palumbo, S. A.},
+  title        = {Thermal resistance of {Salmonella} spp. and {Listeria monocytogenes} in liquid egg yolk and egg yolk products},
+  journaltitle = {Journal of Food Protection},
+  volume       = {58},
+  number       = {9},
+  pages        = {960--966},
+  date         = {1995},
+}
+
+% [SECUNDARIA vía froning2002manual] Reducción logarítmica en clara a 56,6 °C frente al pH.
+@article{palumbo1996white,
+  author       = {Palumbo, M. S. and Beers, S. M. and Bhaduri, S. and Palumbo, S. A.},
+  title        = {Thermal resistance of {Listeria monocytogenes} and {Salmonella} spp. in liquid egg white},
+  journaltitle = {Journal of Food Protection},
+  volume       = {59},
+  number       = {11},
+  pages        = {1182--1186},
+  date         = {1996},
+}
+
+% [SECUNDARIA vía froning2002manual] Capilares frente a PHE; > 9 D en clara a 56,7 °C en PHE.
+@article{michalski1999capillary,
+  author       = {Michalski, C. B. and Brackett, R. E. and Hung, Y. C. and Ezeike, G. O. I.},
+  title        = {Use of capillary tubes and plate heat exchanger to validate {USDA} pasteurization protocols for elimination of {Salmonella enteritidis} from liquid egg products},
+  journaltitle = {Journal of Food Protection},
+  volume       = {62},
+  number       = {2},
+  pages        = {112--117},
+  date         = {1999},
+}
+
+% [SECUNDARIA vía froning2002manual y cunningham1995pasteurization][VERIFICAR PÁGINAS]
+% Estabilización de la clara (pH ~7 con láctico + sal de aluminio) para pasteurizar a > 60 °C.
+% Páginas: el manual AEB dice 1442-1446; Paperppps dice 1442-1447.
+@article{cunningham1965stabilizing,
+  author       = {Cunningham, F. E. and Lineweaver, H.},
+  title        = {Stabilization of egg-white proteins to pasteurizing temperatures above 60 °{C}},
+  journaltitle = {Food Technology},
+  volume       = {19},
+  pages        = {1442--1446},
+  date         = {1965},
+}
+
+% [PRIMARIA desde 2026-10-26, leída en Google Patents: US3251697A] Presentada 19/03/1964, otorgada 17/05/1966.
+% Reivindicación 1: sal de metal polivalente a ~0,0003-0,003 M que reduce la sensibilidad térmica de las
+% proteínas y evita la coagulación. Reivindicación 2: el metal es aluminio. Reivindicación 4: pH 6-8 antes de
+% calentar (óptimo 6,5-7). Ejemplos con AlCl3: 0,001 M y 60 °C x 10 min; 25 ppm de Al y 60 °C x 3 min.
+% Ácidos admitidos: clorhídrico, láctico, acético, sulfúrico. El cítrico no figura (es quelante de Al).
+% Ej. VII: el tratamiento NO aumenta la resistencia de Salmonella.
+@patent{lineweaver1966patent,
+  author       = {Lineweaver, H. and Cunningham, F. E.},
+  title        = {Process for pasteurizing egg white},
+  number       = {3251697},
+  type         = {patentus},
+  date         = {1966-05-17},
+  url          = {https://patents.google.com/patent/US3251697A/en},
+  urldate      = {2026-10-26},
+}
+
+% [PRIMARIA] Archivo: D_salmonella.pdf. Cepa SUBROGANTE avirulenta (S. Typhimurium ATCC 53647), de
+% resistencia media. Clara pH 9,0: D60 = 0,28 min, z = 8,1 °C. Yema pH 6,4: D60 = 1,97 min, z = 6,8 °C.
+% Huevo entero: D60 = 0,73 (con tiempo de subida) / 0,51 min (sin él), z = 5,0-5,2 °C; 5D a 60 °C = 3,3-3,6 min.
+% Uso: verificación independiente, no base de diseño. Ojo: el texto dice D60 de yema = 0,67 y la Tabla 1 dice 1,97.
+@article{bermudezaguirre2024thermal,
+  author       = {Bermudez-Aguirre, D. and Boyd, G. and Uknalis, J. and Niemira, B. A.},
+  title        = {Thermal resistance of avirulent {Salmonella enterica} serovar {Typhimurium} in albumen, yolk, and liquid whole egg},
+  journaltitle = {ACS Food Science \& Technology},
+  volume       = {4},
+  pages        = {2047--2057},
+  date         = {2024},
+  doi          = {10.1021/acsfoodscitech.4c00108},
+}
+
+% [PRIMARIA][VERIFICAR AÑO: sus referencias llegan a 1998] Archivo: Propiedas_paginas_84_91.pdf (Anexo 1, pp. 75-82).
+% Huevo entero (un lote comercial "homogenizado y estabilizado"): rho = 1,0329 g/mL a 21,3 °C;
+% Cv = 0,8144 cal/(mL °C), es decir cp ~ 3,30 kJ/(kg K) (calorímetro rudimentario);
+% n' = 0,955; K' = 0,0689 - 0,0007 T [dyn s^n/cm2], válido 10-40 °C, cono-plato a 1050-1800 1/s.
+% El Anexo 3 (DTR) es inconsistente: el tiempo medio crece con el caudal. No usarlo.
+@thesis{leonmunguia_tesis,
+  author       = {León Munguía, J.},
+  title        = {Condiciones de operación en la pasteurización {HTST} de huevo entero líquido},
+  type         = {Tesis de licenciatura (Ingeniería en Alimentos)},
+  institution  = {Universidad Nacional Autónoma de México, Facultad de Estudios Superiores Cuautitlán},
+}
+
+% [PRIMARIA, web; solo leído el resumen de resultados] Única medición encontrada de caída de flujo en UF de clara:
+% caída del 21-55 % hasta un flujo pseudoestacionario en 80-100 min (membrana cerámica de 150 kDa, 20 °C,
+% solución MUY diluida de 0,2 g/L). Base del supuesto para dimensionar el pulmón post-UF.
+@article{borysiak2018fouling,
+  author       = {Borysiak, M. and Gabruś, E.},
+  title        = {Ceramic membrane fouling in ultrafiltration process of chicken egg white aqueous solution},
+  journaltitle = {Chemical and Process Engineering},
+  volume       = {39},
+  number       = {3},
+  pages        = {295--308},
+  date         = {2018},
+  doi          = {10.24425/122951},
+}
+
+% [PRIMARIA] Archivo: PS-1_ES.pdf. Bomba de salida de quebradora con tanquecito y flotador (on/off),
+% 3000 L/h, 0,75 kW, AISI 304. No sirve como pulmón de caudal constante.
+@manual{ovotech_ps1,
+  author       = {{OVO-TECH}},
+  title        = {Sistema de bomba {PS-1}: ficha técnica},
+  organization = {OVO-TECH},
+  location     = {Starachowice, Polonia},
+}
+
+% [SECUNDARIA vía froning2002manual y cunningham1995pasteurization] Medición del tiempo mínimo
+% de residencia en pasteurizadores de huevo comerciales.
+@article{kaufman1968holding,
+  author       = {Kaufman, V. F. and Putman, G. W. and Ijichi, K.},
+  title        = {Test methods for measuring minimum holding times in continuous egg pasteurizers},
+  journaltitle = {Journal of Milk and Food Technology},
+  volume       = {31},
+  pages        = {310--314},
+  date         = {1968},
+}
+
+% [SECUNDARIA vía cunningham1995pasteurization] Conalbúmina: desnaturalización a 57,3 °C.
+@article{johnson1981gelation,
+  author       = {Johnson, T. M. and Zabik, M. E.},
+  title        = {Gelation properties of albumen proteins, singly and in combination},
+  journaltitle = {Poultry Science},
+  volume       = {60},
+  pages        = {2071--2083},
+  date         = {1981},
+}
+
+% [SECUNDARIA vía cunningham1995pasteurization] Agregación: la ovotransferrina no agrega a 60 °C
+% (pH 9); el ovomucoide no agrega a 76 °C (pH 7 y 9). El "respectively" asigna 76 °C al
+% OVOMUCOIDE, no a la ovotransferrina (la Hoja 6 de Paperppps lo leyó al revés).
+@article{matsuda1981aggregation,
+  author       = {Matsuda, T. and Watanabe, K. and Sato, Y.},
+  title        = {Heat-induced aggregation of egg white proteins as studied by vertical flat-sheet polyacrylamide gel electrophoresis},
+  journaltitle = {Journal of Food Science},
+  volume       = {46},
+  pages        = {1829--1834},
+  date         = {1981},
+}
+
+% [SECUNDARIA vía gut2003yolk][VERIFICAR] z = 5,2 °C para S. Senftenberg 775W en huevo entero.
+% Autor 4 tal como figura en Gut; confirmen el nombre completo en el original.
+@article{manas2003senftenberg,
+  author       = {Mañas, P. and Pagán, R. and Álvarez, I. and Usón, S. C.},
+  title        = {Survival of {Salmonella senftenberg} 775W to current liquid whole egg pasteurization treatments},
+  journaltitle = {Food Microbiology},
+  volume       = {20},
+  pages        = {593--600},
+  date         = {2003},
+}
+
+% [SECUNDARIA vía gut2003yolk] Factores de ensuciamiento usados para yema (medidos en LECHE).
+@article{lalande1979fouling,
+  author       = {Lalande, M. and Corrieu, G. and Tissier, J. P. and Ferret, R.},
+  title        = {Étude du comportement d'un échangeur à plaques {Vicarb} utilisé pour la pasteurisation du lait},
+  journaltitle = {Le Lait},
+  volume       = {59},
+  number       = {581},
+  pages        = {3--33},
+  date         = {1979},
+}
+
+% [SECUNDARIA vía gut2003yolk] Factores de ensuciamiento del agua.
+@article{marriott1971phe,
+  author       = {Marriott, J.},
+  title        = {Where and how to use plate heat exchangers},
+  journaltitle = {Chemical Engineering},
+  volume       = {5},
+  number       = {4},
+  pages        = {127--134},
+  date         = {1971},
+}
+
+% [SECUNDARIA vía gut2003yolk] Correlación de Nu para placas PLANAS (a1 = 1,35; a2 = 0,36;
+% a3 = 0,33). Sirve solo para reproducir a Gut; sus placas van a ser chevron.
+@article{sharifi1995dynamic,
+  author       = {Sharifi, F. and Narandji, M. R. G. and Mehravaran, K.},
+  title        = {Dynamic simulation of plate heat-exchangers},
+  journaltitle = {International Communications in Heat and Mass Transfer},
+  volume       = {22},
+  number       = {2},
+  pages        = {213--225},
+  date         = {1995},
+}
+
+
+% ---------------------------------------------------------------------
+% 5. A CONSULTAR (necesarias para el modelo; citadas en Gut et al., 2003)
+% ---------------------------------------------------------------------
+
+% [A CONSULTAR] Re generalizado de fluidos power-law en conductos de sección arbitraria
+% (canal de un PHE). Hace falta para la yema en las placas.
+@article{delplace1995generalized,
+  author       = {Delplace, F. and Leuliet, J. C.},
+  title        = {Generalized {Reynolds} number for the flow of power law fluids in cylindrical ducts of arbitrary cross-section},
+  journaltitle = {The Chemical Engineering Journal},
+  volume       = {56},
+  pages        = {33--37},
+  date         = {1995},
+}
+
+% [A CONSULTAR] Distribución de tiempos de residencia medida en pasteurización de yema:
+% sirve para validar el factor v_max/v_media del holding tube.
+@article{landfeld2002rtd,
+  author       = {Landfeld, A. and Žitný, R. and Houška, M. and Kýhos, K. and Novotná, P.},
+  title        = {Residence time distribution during egg yolk pasteurization},
+  journaltitle = {Czech Journal of Food Sciences},
+  volume       = {20},
+  number       = {5},
+  pages        = {193--201},
+  date         = {2002},
+}
+
+% [A CONSULTAR] Modelo de PHE con configuraciones generalizadas (el que usa Gut).
+@article{gutpinto2003model,
+  author       = {Gut, J. A. W. and Pinto, J. M.},
+  title        = {Modeling of plate heat exchangers with generalized configurations},
+  journaltitle = {International Journal of Heat and Mass Transfer},
+  volume       = {46},
+  number       = {14},
+  pages        = {2571--2585},
+  date         = {2003},
+}
+
+% [A CONSULTAR][VERIFICAR VOLUMEN Y PÁGINAS] Optimización de la configuración de PHE multisección
+% para pasteurización: referencia directa para el peldaño 4.
+@article{gutpinto2003config,
+  author       = {Gut, J. A. W. and Pinto, J. M.},
+  title        = {Selecting optimal configurations for multisection plate heat exchangers in pasteurization processes},
+  journaltitle = {Industrial \& Engineering Chemistry Research},
+  volume       = {42},
+  number       = {24},
+  pages        = {6112--6124},
+  date         = {2003},
+}
+
+% ===================== Agregadas 31/10: geometría de placa, reología en cañería, holding y CIP =====================
+
+% [A CONSULTAR] Correlación base Nu y f para placas chevron según ángulo y Re (tabla reproducida en Kakaç et al.).
+% Si no se accede al original, citar como secundaria vía kakac2012heat.
+@inproceedings{kumar1984phe,
+  author       = {Kumar, H.},
+  title        = {The plate heat exchanger: construction and design},
+  booktitle    = {First U.K. National Conference on Heat Transfer},
+  series       = {Institution of Chemical Engineers Symposium Series},
+  number       = {86},
+  pages        = {1275--1288},
+  publisher    = {Institution of Chemical Engineers},
+  date         = {1984},
+}
+
+% [A CONSULTAR] Correlación semiteórica para placas chevron (contraste de Kumar). Base del capítulo de PHE del VDI Heat Atlas.
+@article{martin1996chevron,
+  author       = {Martin, H.},
+  title        = {A theoretical approach to predict the performance of chevron-type plate heat exchangers},
+  journaltitle = {Chemical Engineering and Processing: Process Intensification},
+  volume       = {35},
+  number       = {4},
+  pages        = {301--310},
+  date         = {1996},
+}
+
+% [A CONSULTAR] Rangos típicos de geometría de placa (beta, b, phi, D_h) y método epsilon-NTU.
+@book{shah2003fundamentals,
+  author       = {Shah, R. K. and Sekuli{\'c}, D. P.},
+  title        = {Fundamentals of Heat Exchanger Design},
+  publisher    = {John Wiley \& Sons},
+  location     = {Hoboken, NJ},
+  date         = {2003},
+}
+
+% [A CONSULTAR] Capítulo de intercambiadores de placas: geometría típica y tabla de constantes de Kumar.
+@book{kakac2012heat,
+  author       = {Kaka{\c{c}}, S. and Liu, H. and Pramuanjaroenkij, A.},
+  title        = {Heat Exchangers: Selection, Rating, and Thermal Design},
+  edition      = {3},
+  publisher    = {CRC Press},
+  location     = {Boca Raton, FL},
+  date         = {2012},
+}
+
+% [A CONSULTAR] Reynolds generalizado para fluidos power law en cañería (holding).
+@article{metzner1955flow,
+  author       = {Metzner, A. B. and Reed, J. C.},
+  title        = {Flow of non-Newtonian fluids---correlation of the laminar, transition, and turbulent-flow regions},
+  journaltitle = {AIChE Journal},
+  volume       = {1},
+  number       = {4},
+  pages        = {434--440},
+  date         = {1955},
+}
+
+% [A CONSULTAR] Fuente propuesta para la velocidad mínima de CIP en cañería (~1,5 m/s).
+@book{tamime2008cip,
+  editor       = {Tamime, A. Y.},
+  title        = {Cleaning-in-Place: Dairy, Food and Beverage Operations},
+  edition      = {3},
+  publisher    = {Blackwell Publishing},
+  location     = {Oxford},
+  date         = {2008},
+}
+
+% [A CONSULTAR] Diámetros de tubo sanitario usados en el holding (serie 2: DN25 29x1,5; DN32 35x1,5;
+% DN40 41x1,5; DN50 53x1,5; DN65 70x2).
+@standard{din11850,
+  organization = {Deutsches Institut f{\"u}r Normung},
+  title        = {DIN 11850: Rohre f{\"u}r die Lebensmittel- und Chemieindustrie -- Nichtrostende Stahlrohre},
+  location     = {Berlin},
+  date         = {2009},
+}
+
+% [PRIMARIA] Propiedades del agua de servicio (cp, ρ; k y μ para v1), vía el paquete de Python iapws.
+@techreport{iapws2012if97,
+  institution  = {International Association for the Properties of Water and Steam},
+  title        = {Revised Release on the {IAPWS} Industrial Formulation 1997 for the Thermodynamic Properties of Water and Steam},
+  number       = {IAPWS R7-97(2012)},
+  date         = {2012},
+}
+
+% [A CONSULTAR] Fricción laminar en tubos enrollados: f_espiral/f_recto = 1/{1 − [1 − (11,6/De)^0,45]^(1/0,45)}.
+@article{white1929curved,
+  author       = {White, C. M.},
+  title        = {Streamline flow through curved pipes},
+  journaltitle = {Proceedings of the Royal Society of London. Series A},
+  volume       = {123},
+  number       = {792},
+  pages        = {645--663},
+  date         = {1929},
+}
+
+% [A CONSULTAR] Fricción turbulenta en tubos curvos y Re crítico 2·10^4·(D/Dc)^0,32.
+@article{ito1959friction,
+  author       = {Ito, H.},
+  title        = {Friction factors for turbulent flow in curved pipes},
+  journaltitle = {Journal of Basic Engineering},
+  volume       = {81},
+  number       = {2},
+  pages        = {123--134},
+  date         = {1959},
+}
