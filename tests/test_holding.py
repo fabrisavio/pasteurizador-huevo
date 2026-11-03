@@ -1,3 +1,8 @@
+"""Tests del tubo de retención: casos límite con solución conocida
+(newtoniano, Δp ∝ 1/D⁶, volumen laminar independiente del DN) y el
+comportamiento de la espiral.
+"""
+
 import math
 
 import pytest
@@ -5,7 +10,7 @@ import pytest
 from pasteurizador.cinetica import Cinetica
 from pasteurizador.holding import (Criterios, Geometria, ProductoTubo, Re_critico_espiral,
                                    correccion_white_laminar, elegir_tubo, evaluar_DN,
-                                   flujo_en_tubo, sensibilidad_factor, viscosidad_metzner_reed)
+                                   flujo_en_tubo, viscosidad_metzner_reed)
 
 CIN = Cinetica(1.0, 60.0, 5.0)
 CRIT = Criterios()
@@ -83,13 +88,31 @@ def test_white_vale_1_por_debajo_de_Dean_11_6_y_crece_despues():
     assert 1.0 < correccion_white_laminar(30.0) < correccion_white_laminar(300.0)
 
 
-def test_la_espiral_sube_la_friccion_pero_no_cambia_el_largo():
+def test_la_espiral_sube_la_friccion_y_acorta_el_largo():
     p = producto(n=0.85, K=0.1)
     recto = evaluar_DN(40, 0.038, [p], CRIT, 1.5)
     enrollado = evaluar_DN(40, 0.038, [p], CRIT, 1.5, ESPIRAL, D_ext=0.041)
-    assert enrollado.L == pytest.approx(recto.L)          # el diseño sigue con el factor recto
-    assert enrollado.dp_max > recto.dp_max
+    # el largo baja en la proporción de los factores: 1,71 contra (3n+1)/(n+1)
+    assert enrollado.L / recto.L == pytest.approx((1 / 0.586) / ((3 * 0.85 + 1) / 1.85))
+    assert enrollado.productos["X"].flujo.correccion_f > 1     # más fricción por vuelta
     assert enrollado.vueltas * math.pi * 1.0 == pytest.approx(enrollado.L)
+
+
+def test_factor_espiral_es_1_sobre_0586_y_nunca_mayor_que_el_recto():
+    f_newt = flujo_en_tubo(producto(n=1.0, K=0.1), 0.038, CRIT, ESPIRAL)
+    assert f_newt.Dean > 11.6
+    assert f_newt.factor == pytest.approx(1 / 0.586)
+    assert f_newt.factor_recto == pytest.approx(2.0)
+    # pseudoplástico muy marcado: su perfil recto ya es más plano que 1,71
+    f_plano = flujo_en_tubo(producto(n=0.4, K=0.1), 0.038, CRIT, ESPIRAL)
+    assert f_plano.factor == pytest.approx((3 * 0.4 + 1) / 1.4)
+
+
+def test_sin_vortices_de_Dean_usa_el_factor_recto():
+    # muy viscoso: Re y Dean chiquitos, la curvatura no hace nada
+    f = flujo_en_tubo(producto(n=1.0, K=50.0), 0.038, CRIT, ESPIRAL)
+    assert f.Dean <= 11.6
+    assert f.factor == pytest.approx(2.0)
 
 
 def test_la_curvatura_retrasa_la_turbulencia():
@@ -100,13 +123,12 @@ def test_la_curvatura_retrasa_la_turbulencia():
     assert flujo_en_tubo(p, 0.032, CRIT, ESPIRAL).regimen == "laminar"
 
 
-def test_sensibilidad_escala_lineal_con_el_factor():
-    p = producto(n=1.0, K=0.1)  # laminar newtoniano: factor de diseño 2
-    op = evaluar_DN(40, 0.038, [p], CRIT, 1.5, ESPIRAL, D_ext=0.041)
-    pts = sensibilidad_factor(op, [p], [2.0, 1.5, 1.0], ESPIRAL)
-    assert pts[0].L == pytest.approx(op.L)
-    assert pts[1].L == pytest.approx(0.75 * op.L)
-    assert pts[2].dp_max == pytest.approx(0.5 * op.dp_max)
+def test_espiral_informa_el_equivalente_recto():
+    p = producto(n=1.0, K=0.1)
+    tubo = elegir_tubo([p], {40: 0.038}, CRIT, dp_max_Pa=1e6, v_CIP=1.5, geo=ESPIRAL,
+                       DN_ext={40: 0.041})
+    assert tubo.equivalente_recto.L > tubo.elegido.L
+    assert elegir_tubo([p], {40: 0.038}, CRIT, 1e6, 1.5).equivalente_recto is None
 
 
 def test_espiral_sin_diametro_es_error():

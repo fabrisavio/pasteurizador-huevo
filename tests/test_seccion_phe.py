@@ -1,3 +1,8 @@
+"""Tests de una sección de placas: ε-NTU, balances y que diseñar y verificar
+sean inversos (si diseño un área para ciertas T y después la verifico, tienen
+que volver las mismas T).
+"""
+
 import pytest
 
 from pasteurizador import propiedades as pr

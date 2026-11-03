@@ -1,3 +1,5 @@
+"""Tests del modelo D–z: las definiciones de D y z se tienen que cumplir."""
+
 import pytest
 
 from pasteurizador.cinetica import Cinetica

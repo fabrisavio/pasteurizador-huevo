@@ -1,20 +1,38 @@
 """Tubo de retención (holding tube).
 
-Es un reactor de flujo pistón imperfecto: el criterio legal es que TODA
-partícula pase al menos t_holding a T_holding (9 CFR 590.570), así que el
-largo lo fija la partícula más rápida, no la media.
+Qué resuelve: el largo y el diámetro del tubo donde el producto se queda
+t_holding a T_holding.
 
-Fluidos ley de potencia: el Reynolds se generaliza con Metzner–Reed (1955), que
-define la viscosidad aparente en la pared para que sigan valiendo f = 16/Re y
-la transición en ~2100. Con n = 1 todo vuelve al caso newtoniano.
+Por qué el largo lo fija la partícula más rápida y no la media: el criterio
+legal es que TODA partícula pase al menos t_holding a T_holding
+(9 CFR 590.570). En flujo laminar el perfil de velocidad es una parábola: el
+centro va al doble de la media (newtoniano). Si el tubo se dimensionara con la
+velocidad media, el centro saldría con la mitad del tiempo. Es la diferencia
+entre un PFR ideal y uno real.
+
+Fluidos ley de potencia (yema, huevo entero): el Reynolds se generaliza con
+Metzner–Reed (1955). Define una viscosidad aparente evaluada en la pared para
+que sigan valiendo f = 16/Re y la transición en ~2100. Con n = 1 todo vuelve
+al caso newtoniano.
 
 Dos geometrías:
 - recto: tramos rectos; las curvas de unión se desprecian.
-- espiral: tubo enrollado en hélice. En cada vuelta, la fuerza centrífuga
-  arma dos remolinos (vórtices de Dean) que suben la fricción y retrasan la
-  turbulencia. También angostan la distribución de tiempos de residencia, pero
-  cuánto se mide con un ensayo de trazador: por eso el diseño sigue usando el
-  factor de tubo recto y la mejora posible se informa como sensibilidad.
+- espiral: tubo enrollado en hélice. En cada vuelta la fuerza centrífuga
+  empuja el fluido rápido del centro hacia afuera y arma dos remolinos
+  (vórtices de Dean). Eso sube la fricción, retrasa la turbulencia y mezcla
+  el centro con la pared: la partícula más rápida ya no viaja siempre por el
+  centro y tarda más. Para el diseño se toma t_min/t_medio = 0,586, el valor
+  más bajo (el más conservador) de los análisis de flujo laminar en hélice
+  de Ruthven (1971) y Trivedi y Vasudeva (1974), según la revisión de
+  Gutierrez et al. (2010), que además midieron 0,70 o más en un tubo
+  helicoidal de retención.
+
+Construcciones de Python que aparecen acá (y en el resto del paquete):
+- @dataclass: una "ficha" con campos con nombre, como una fila de tabla. Python
+  arma solo el constructor: ProductoTubo(clave="YP", m=0.3, ...).
+- frozen=True: la ficha no se puede modificar después de creada.
+- `x: float | None = None`: el campo puede quedar vacío (None) si no aplica.
+- `-> Flujo`: anota qué devuelve la función. Es solo documentación.
 """
 
 from __future__ import annotations
@@ -31,8 +49,8 @@ class ProductoTubo:
     clave: str
     m: float          # kg/s
     rho: float        # kg/m³ a la T media del tubo
-    K: float          # Pa·sⁿ
-    n: float
+    K: float          # Pa·sⁿ, índice de consistencia (ley de potencia)
+    n: float          # índice de flujo: 1 newtoniano, < 1 pseudoplástico
     T_holding: float  # °C, T legal (salida del tubo)
     t_holding: float  # s
     cinetica: Cinetica
@@ -40,29 +58,44 @@ class ProductoTubo:
 
 @dataclass
 class Criterios:
-    Re_critico: float = 2100.0
-    Re_turbulento: float = 4000.0
-    factor_turbulento_vmax: float = 1.25
+    Re_critico: float = 2100.0          # fin del laminar en tubo recto
+    Re_turbulento: float = 4000.0       # comienzo del turbulento desarrollado
+    factor_turbulento_vmax: float = 1.25  # v_max/v_media en turbulento
 
 
 @dataclass(frozen=True)
 class Geometria:
-    tipo: str = "recto"            # recto | espiral
+    tipo: str = "recto"             # recto | espiral
     D_espiral: float | None = None  # m, diámetro de la hélice (al eje del tubo)
     separacion: float = 0.01        # m, luz entre vueltas
+    # Partícula más rápida en la hélice: t_min/t_medio. 0,586 → v_max/v_media = 1,71
+    t_min_sobre_t_medio: float = 0.586
+    # Por debajo de este Dean el flujo secundario es despreciable (White, 1929):
+    # el tubo se comporta como recto y se usa el factor de tubo recto.
+    Dean_min: float = 11.6
 
     def __post_init__(self):
+        # Se ejecuta al crear la ficha: valida antes de que el error aparezca lejos.
         if self.tipo not in ("recto", "espiral"):
             raise ValueError(f"Geometría de tubo desconocida: {self.tipo}")
         if self.tipo == "espiral" and not self.D_espiral:
             raise ValueError("La espiral necesita su diámetro (diam_espiral_m)")
+        if not 0.5 <= self.t_min_sobre_t_medio <= 1.0:
+            # 0,5 es el laminar newtoniano recto; 1 es flujo pistón ideal
+            raise ValueError("t_min/t_medio tiene que estar entre 0,5 y 1")
 
     @property
     def es_espiral(self) -> bool:
+        # @property: se usa como un campo (geo.es_espiral), sin paréntesis
         return self.tipo == "espiral"
 
+    @property
+    def factor_espiral(self) -> float:
+        """v_max/v_media de diseño en la hélice."""
+        return 1.0 / self.t_min_sobre_t_medio
 
-RECTO = Geometria()
+
+RECTO = Geometria()  # geometría por defecto, para no repetirla en cada llamada
 
 
 @dataclass
@@ -71,7 +104,8 @@ class Flujo:
     mu_ef: float        # Pa·s, viscosidad aparente de Metzner–Reed
     Re: float           # Reynolds generalizado
     regimen: str        # laminar | transicion | turbulento
-    factor: float       # v_max / v_media usado para el largo
+    factor: float       # v_max/v_media usado para el largo (diseño)
+    factor_recto: float  # el que correspondería en tubo recto, para comparar
     f_fanning: float    # ya corregido por curvatura si es espiral
     gamma_pared: float  # 1/s, tasa de corte en la pared (laminar)
     Dean: float = 0.0   # Re·√(D/Dc); 0 en tubo recto
@@ -82,7 +116,12 @@ class Flujo:
 # Correlaciones
 # -----------------------------------------------------------------------------
 def viscosidad_metzner_reed(K: float, n: float, v: float, D: float) -> float:
-    """μ_ef = K·((3n+1)/(4n))ⁿ·(8v/D)^(n−1).  Con n = 1 da μ = K."""
+    """μ_ef = K·((3n+1)/(4n))ⁿ·(8v/D)^(n−1).  Con n = 1 da μ = K.
+
+    8v/D es la tasa de corte "nominal" en la pared. Un pseudoplástico (n < 1)
+    se vuelve más fluido cuanto más rápido lo cortás: por eso el exponente n−1
+    es negativo y μ_ef baja al subir la velocidad.
+    """
     return K * ((3 * n + 1) / (4 * n)) ** n * (8 * v / D) ** (n - 1)
 
 
@@ -109,39 +148,50 @@ def Re_critico_espiral(D: float, D_espiral: float) -> float:
 # -----------------------------------------------------------------------------
 def flujo_en_tubo(p: ProductoTubo, D: float, crit: Criterios,
                   geo: Geometria = RECTO) -> Flujo:
+    """Régimen, factor de partícula rápida y fricción de un producto en un tubo de diámetro D."""
     A = math.pi * D**2 / 4
-    v = p.m / (p.rho * A)
+    v = p.m / (p.rho * A)                       # caudal másico → velocidad media
     mu_ef = viscosidad_metzner_reed(p.K, p.n, v, D)
     Re = p.rho * v * D / mu_ef
-    factor_laminar = (3 * p.n + 1) / (p.n + 1)  # perfil de ley de potencia; 2 si n = 1
+    # Perfil laminar de ley de potencia: v_max/v_media = (3n+1)/(n+1).
+    # n = 1 → 2 (la parábola de siempre); n → 0 → 1 (flujo pistón).
+    factor_laminar = (3 * p.n + 1) / (p.n + 1)
 
+    # Límites de régimen. En espiral la curvatura estabiliza el laminar,
+    # así que toda la banda de transición se corre hacia Re más altos.
     Re_c, Re_t = crit.Re_critico, crit.Re_turbulento
     if geo.es_espiral:
         Re_c = max(Re_c, Re_critico_espiral(D, geo.D_espiral))
-        Re_t = Re_c * crit.Re_turbulento / crit.Re_critico  # misma banda de transición, corrida
+        Re_t = Re_c * crit.Re_turbulento / crit.Re_critico
 
     if Re < Re_c:
-        regimen, factor = "laminar", factor_laminar
+        regimen, factor_recto = "laminar", factor_laminar
     elif Re < Re_t:
         # En transición el perfil no está desarrollado como turbulento:
         # se diseña con el factor laminar, que es el lado seguro.
-        regimen, factor = "transicion", factor_laminar
+        regimen, factor_recto = "transicion", factor_laminar
     else:
-        regimen, factor = "turbulento", crit.factor_turbulento_vmax
+        regimen, factor_recto = "turbulento", crit.factor_turbulento_vmax
 
-    # Fricción: laminar exacta; transición y turbulento con Blasius (conservador en transición)
+    # Fricción de Fanning: laminar exacta (16/Re); transición y turbulento con
+    # Blasius (conservador en transición). Δp = 4f·(L/D)·ρv²/2.
     f = 16.0 / Re if regimen == "laminar" else 0.079 / Re**0.25
-    Dean, corr = 0.0, 1.0
+
+    factor, Dean, corr = factor_recto, 0.0, 1.0
     if geo.es_espiral:
-        Dean = Re * math.sqrt(D / geo.D_espiral)
+        Dean = Re * math.sqrt(D / geo.D_espiral)  # Re corregido por la curvatura
         corr = (correccion_white_laminar(Dean) if regimen == "laminar"
                 else correccion_ito_turbulento(Re, D, geo.D_espiral))
-    gamma = (3 * p.n + 1) / (4 * p.n) * 8 * v / D
-    return Flujo(v, mu_ef, Re, regimen, factor, f * corr, gamma, Dean, corr)
+        if regimen != "turbulento" and Dean > geo.Dean_min:
+            # Los vórtices de Dean sacan a la partícula del centro: factor menor.
+            # min(): si el perfil ya es más plano que eso (n bajo), queda el recto.
+            factor = min(factor_laminar, geo.factor_espiral)
+    gamma = (3 * p.n + 1) / (4 * p.n) * 8 * v / D  # corte real en la pared (Rabinowitsch)
+    return Flujo(v, mu_ef, Re, regimen, factor, factor_recto, f * corr, gamma, Dean, corr)
 
 
 def caida_presion(p: ProductoTubo, flujo: Flujo, D: float, L: float) -> float:
-    """Δp = 4f·(L/D)·ρv²/2, en Pa."""
+    """Δp = 4f·(L/D)·ρv²/2, en Pa (Fanning; el 4 lo pasa a Darcy)."""
     return 4 * flujo.f_fanning * (L / D) * p.rho * flujo.v_media**2 / 2
 
 
@@ -178,19 +228,24 @@ class OpcionDN:
 
 
 def _forma_espiral(L: float, D_ext: float | None, geo: Geometria):
+    """Vueltas y altura de la hélice. Cada vuelta mide π·Dc de largo."""
     if not geo.es_espiral:
         return None, None
     vueltas = L / (math.pi * geo.D_espiral)
+    # cada vuelta ocupa en altura un diámetro exterior más la luz entre vueltas
     alto = vueltas * (D_ext + geo.separacion) if D_ext else None
     return vueltas, alto
 
 
 def evaluar_DN(DN: int, D: float, productos: list[ProductoTubo], crit: Criterios,
                v_CIP: float, geo: Geometria = RECTO, D_ext: float | None = None) -> OpcionDN:
+    """Largo, volumen, Δp y tiempos de todos los productos en un DN dado."""
+    # {clave: valor for p in lista} arma un diccionario recorriendo la lista
     flujos = {p.clave: flujo_en_tubo(p, D, crit, geo) for p in productos}
+    # Largo que pide cada producto: L = v_max · t = factor · v_media · t
     L_req = {p.clave: flujos[p.clave].factor * flujos[p.clave].v_media * p.t_holding
              for p in productos}
-    gobierna = max(L_req, key=L_req.get)
+    gobierna = max(L_req, key=L_req.get)  # la clave con el mayor valor
     L = L_req[gobierna]  # un solo tubo físico: manda el que más largo pide
 
     res = {}
@@ -219,36 +274,6 @@ def evaluar_DN(DN: int, D: float, productos: list[ProductoTubo], crit: Criterios
 
 
 # -----------------------------------------------------------------------------
-# Sensibilidad: ¿qué pasa si el ensayo mide una partícula rápida más lenta?
-# -----------------------------------------------------------------------------
-@dataclass
-class PuntoSensibilidad:
-    factor: float        # v_max / v_media supuesto (igual para todos los productos)
-    L: float
-    volumen_L: float
-    dp_max: float        # Pa
-    vueltas: float | None
-    alto: float | None
-
-
-def sensibilidad_factor(op: OpcionDN, productos: list[ProductoTubo], factores: list[float],
-                        geo: Geometria) -> list[PuntoSensibilidad]:
-    """Largo y Δp del DN elegido si el factor de la partícula rápida fuera otro.
-
-    El Δp de cada producto escala con el largo (f no depende de L), así que no
-    hace falta recalcular el flujo.
-    """
-    t = {p.clave: p.t_holding for p in productos}
-    puntos = []
-    for fac in factores:
-        L = max(fac * r.flujo.v_media * t[k] for k, r in op.productos.items())
-        dp = max(r.dp * L / op.L for r in op.productos.values())
-        vueltas, alto = _forma_espiral(L, op.D_ext, geo)
-        puntos.append(PuntoSensibilidad(fac, L, math.pi * op.D**2 / 4 * L * 1000, dp, vueltas, alto))
-    return puntos
-
-
-# -----------------------------------------------------------------------------
 # Elección del DN
 # -----------------------------------------------------------------------------
 @dataclass
@@ -256,32 +281,39 @@ class Tubo:
     elegido: OpcionDN
     opciones: list[OpcionDN]
     geometria: Geometria = RECTO
-    sensibilidad: list[PuntoSensibilidad] = field(default_factory=list)
-    avisos: list[str] = field(default_factory=list)
+    # El mismo DN en tramos rectos, para mostrar cuánto ahorra enrollarlo
+    equivalente_recto: OpcionDN | None = None
+    avisos: list[str] = field(default_factory=list)  # lista vacía nueva por cada Tubo
 
 
 def elegir_tubo(productos: list[ProductoTubo], DN_diam: dict[int, float],
                 crit: Criterios, dp_max_Pa: float, v_CIP: float,
                 geo: Geometria = RECTO, DN_ext: dict[int, float] | None = None,
-                factores_sensibilidad: list[float] | None = None) -> Tubo:
+                factor_dp: float = 1.0) -> Tubo:
     """Evalúa todos los DN y elige el más chico que respeta el Δp máximo.
 
     Por qué el más chico: en laminar el volumen no depende del DN, así que el
-    DN solo reparte ese volumen entre largo y Δp (Δp ∝ 1/D⁶). El Δp máximo pone
-    la cota inferior; achicar el DN baja el caudal de CIP y sube la velocidad.
+    DN solo reparte ese volumen entre largo y Δp (Δp ∝ 1/D⁶ en newtoniano:
+    D⁴ por la velocidad y D² más por el largo). El Δp máximo pone la cota
+    inferior; un DN más grande solo agranda el caudal de CIP necesario.
+
+    factor_dp: el Δp calculado se multiplica por esto antes de compararlo con
+    el máximo. En laminar Δp es proporcional a K, y K de la yema es incierto:
+    sin factor, un DN que entra raspando queda afuera con un lote más espeso.
     """
-    DN_ext = DN_ext or {}
+    DN_ext = DN_ext or {}  # si no vino, diccionario vacío
     opciones = [evaluar_DN(DN, D, productos, crit, v_CIP, geo, DN_ext.get(DN))
                 for DN, D in sorted(DN_diam.items())]
     for op in opciones:
-        if op.dp_max > dp_max_Pa:
+        if op.dp_max * factor_dp > dp_max_Pa:
             op.factible = False
-            op.motivo = f"Δp {op.dp_max/1e5:.2f} bar > {dp_max_Pa/1e5:.2f} bar"
+            op.motivo = (f"Δp {op.dp_max/1e5:.2f} bar × {factor_dp} = "
+                         f"{op.dp_max*factor_dp/1e5:.2f} bar > {dp_max_Pa/1e5:.2f} bar")
 
     avisos = []
     factibles = [op for op in opciones if op.factible]
     if factibles:
-        elegido = factibles[0]
+        elegido = factibles[0]  # están ordenados de menor a mayor DN
     else:
         elegido = opciones[-1]
         avisos.append("Ningún DN cumple el Δp máximo; se toma el más grande disponible")
@@ -299,23 +331,25 @@ def elegir_tubo(productos: list[ProductoTubo], DN_diam: dict[int, float],
                 f"laminar {r.flujo.factor:.2f} para la partícula más rápida"
             )
 
+    recto = None
     if geo.es_espiral:
         relacion = geo.D_espiral / elegido.D
         if not 15 <= relacion <= 860:
             avisos.append(
                 f"Tubo: Dc/D = {relacion:.0f}, fuera del rango de las correlaciones de Ito (15–860)"
             )
+        for clave, r in elegido.productos.items():
+            if r.flujo.regimen != "turbulento" and r.flujo.Dean <= geo.Dean_min:
+                avisos.append(
+                    f"{clave}: Dean = {r.flujo.Dean:.1f} ≤ {geo.Dean_min}: sin flujo secundario "
+                    "apreciable, se usa el factor de tubo recto"
+                )
         avisos.append(
             "Tubo en espiral: corrección de fricción por curvatura (White 1929 en laminar, "
             "Ito 1959 en turbulento) pensada para newtonianos, aplicada con el Re de "
             "Metzner–Reed: aproximación"
         )
-        avisos.append(
-            "Tubo en espiral: el largo se diseña con el factor de partícula rápida de tubo "
-            "recto (lado seguro). El factor real se mide con un ensayo de trazador "
-            "(Kaufman et al., 1968); la tabla de sensibilidad muestra lo que podría ahorrar"
-        )
+        recto = evaluar_DN(elegido.DN, elegido.D, productos, crit, v_CIP, RECTO, elegido.D_ext)
 
-    sens = sensibilidad_factor(elegido, productos, factores_sensibilidad or [], geo)
     return Tubo(elegido=elegido, opciones=opciones, geometria=geo,
-                sensibilidad=sens, avisos=avisos)
+                equivalente_recto=recto, avisos=avisos)

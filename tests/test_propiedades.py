@@ -1,3 +1,11 @@
+"""Tests de propiedades: contra valores conocidos (agua pura) y límites físicos.
+
+Cómo funciona pytest: busca archivos test_*.py, corre cada función test_*, y
+cada `assert` es una afirmación que tiene que ser verdadera. Si una falla,
+pytest dice cuál, en qué línea y con qué valores. pytest.approx compara con
+tolerancia, porque en números con coma "igual" casi nunca es exacto.
+"""
+
 import pytest
 
 from pasteurizador import propiedades as pr

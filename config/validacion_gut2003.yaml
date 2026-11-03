@@ -33,12 +33,17 @@ U_W_m2K:
 holding:
   perdida_T_C: 1.0
 
-# Resultados publicados (Tabla 7, contracorriente pura)
+# Resultados publicados (Tabla 7, contracorriente pura). Numeración del paper:
+#
+#   T1 yema cruda (5 °C)
+#    ▼
+#   [regeneración, lado frío] ─T2─► [calentamiento] ─T3─► tubo ─T4─┐
+#   T6 ◄─ [enfriamiento] ◄─T5─ [regeneración, lado caliente] ◄─────┘
 esperado_C:
-  T2: 48.34                            # producto a la salida de la regeneración
-  T3: 61.26                            # salida del calentamiento
-  T4: 60.26                            # salida del tubo de retención
-  T5: 17.38                            # salida de la regeneración (lado caliente)
-  T6: 4.45                             # salida del enfriamiento
+  T2: 48.34                            # yema cruda a la salida de la regeneración (entra al calentamiento)
+  T3: 61.26                            # yema a la salida del calentamiento (entra al tubo)
+  T4: 60.26                            # yema a la salida del tubo de retención (punto legal)
+  T5: 17.38                            # yema pasteurizada a la salida de la regeneración (entra al enfriamiento)
+  T6: 4.45                             # yema a la salida del enfriamiento (a almacenamiento)
 
 tolerancia_C: 0.5

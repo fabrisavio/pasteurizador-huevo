@@ -1,11 +1,15 @@
 # =============================================================================
-# Configuración base del pasteurizador (v0)
+# Configuración base del pasteurizador (v0.4)
 #
 # Unidades prácticas acá (kg/h, °C, min, bar). El código pasa todo a SI al
 # cargar, salvo las temperaturas, que quedan en °C porque así están escritas
 # todas las correlaciones de propiedades. Las diferencias de T valen igual en K.
 #
 # Entre corchetes, la clave de la fuente en docs/fuentes.bib.
+#
+# Para probar otro caso: copiá este archivo (por ejemplo a config/mi_caso.yaml),
+# cambiá lo que quieras y corré  python correr.py config/mi_caso.yaml
+# YAML: la sangría (espacios, no tabs) define qué está adentro de qué.
 # =============================================================================
 
 productos:
@@ -55,7 +59,12 @@ productos:
     caudal_kg_h: 822.4
     T_entrada_C: 35                     # salida de la UF (dato SANOVO)
     T_entrada_rango_C: [35, 35]
-    T_holding_C: 60.0                   # [rbn1994cap15] 15.2.11, con alumbre
+    # 60 °C es posible porque la clara se estabiliza antes de pasteurizar:
+    # ácido láctico hasta pH ~7 y sal de aluminio, que forma un complejo
+    # termoestable con la ovotransferrina, la proteína más sensible
+    # [cunningham1965stabilizing], [lineweaver1966patent], [froning2002manual].
+    # Así soporta 60–61,7 °C durante 3,5–4 min sin coagular. [rbn1994cap15] 15.2.11, con alumbre
+    T_holding_C: 60.0
     t_holding_min: 3.5
     T_salida_C: 45
     T_max_agua_C: 62
@@ -93,12 +102,36 @@ equipo:
       tipo: espiral                     # espiral | recto. Con ~100 m nadie lo instala recto
       diam_espiral_m: 1.0               # diámetro de la hélice, al eje del tubo (supuesto)
       separacion_vueltas_m: 0.01        # luz entre vueltas
-    # Sensibilidad: largo y Δp si el ensayo de trazador midiera una partícula
-    # rápida más lenta que la de tubo recto. NO cambia el diseño.
-    factores_sensibilidad: [1.8, 1.6, 1.4, 1.25]
-    perdida_T_C: 0.5                    # caída de T en el tubo aislado
+      # Partícula más rápida en la hélice, como fracción del tiempo medio.
+      # Recto laminar newtoniano: 0,5. Hélice: 0,586–0,658 en el análisis de
+      # flujo laminar ideal [ruthven1971helical], [trivedi1974rtd], según
+      # [gutierrez2010holding], que midieron ≥ 0,70 en un tubo helicoidal real.
+      # Se toma el extremo bajo (el conservador): v_max/v_media = 1/0,586 = 1,71.
+      # Es un valor newtoniano; se aplica también a yema y huevo entero, cuyo
+      # perfil ya es más plano que la parábola.
+      t_min_sobre_t_medio: 0.586
+      Dean_min: 11.6                    # debajo de esto no hay vórtices de Dean [white1929curved]: factor de tubo recto
+    # La pérdida de T en el tubo se calcula con la aislación (antes era 0,5 °C fijo).
+    # Para volver a un valor fijo: borrar 'aislacion' y poner  perdida_T_C: 0.5
+    aislacion:
+      forma: bloque                     # bloque: la espiral entera en una camisa desmontable | tubo: coquilla a lo largo
+      espesor_m: 0.05
+      k_W_mK: 0.040                     # lana mineral; mantas de fibra 0,038–0,046 [incropera2007fundamentals], Tabla A.3
+      h_ext_W_m2K: 10                   # convección natural + radiación (supuesto; casi no influye)
+      T_ambiente_C: 20                  # sala de proceso (supuesto)
+      holgura_m: 0.05                   # luz entre la espiral y la camisa
+      # La aislación del tubo de retención tiene que poder sacarse para inspeccionarlo [cfia2026htst]
     dp_max_bar: 1.0                     # cota inferior del DN: bomba y juntas
+    # El Δp de la yema es proporcional a su K, y K es incierto: la ecuación y la
+    # tabla de [gut2003yolk] difieren 23–38 % sobre 48 °C. Se pide que entre con 1,4×.
+    factor_seguridad_dp: 1.4
     v_CIP_min_m_s: 1.5                  # velocidad de limpieza en cañería [tamime2008cip]
+
+control:
+  # El controlador apunta un poco arriba de la T legal: oscila unas décimas y
+  # la válvula de desvío, una vez que desvía, recién vuelve a dejar pasar al
+  # menos 0,25 °C más arriba [cfia2026htst]. Sin margen, desviaría a cada rato.
+  margen_sobre_T_legal_C: 0.5           # supuesto: el doble de esa histéresis
 
 servicios:
   agua_caliente:

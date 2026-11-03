@@ -9,6 +9,16 @@ Dos modos:
 
 v0: U constante por sección, dado desde la config. Las propiedades se evalúan
 a la T media de cada corriente, que es lo que recomiendan Gut et al. (2003).
+
+Repaso de ε-NTU, en el idioma de este código:
+- C = m·cp [W/K] de cada corriente. C_min es la que "manda": es la que más
+  cambia de temperatura.
+- Cr = C_min/C_max. En regeneración es ~1 (el mismo producto de los dos lados).
+- ε = Q / Q_max: qué fracción del calor máximo posible se intercambia.
+  Q_max = C_min·(Tc_in − Tf_in), lo que pasaría con área infinita.
+- NTU = U·A/C_min: el "tamaño térmico" del intercambiador. Más NTU, más ε,
+  con rendimientos decrecientes (cada placa extra aporta menos).
+Diseñar es ir de ε a NTU (y de ahí a A); verificar es ir de A a ε.
 """
 
 from __future__ import annotations
@@ -20,14 +30,17 @@ from typing import Callable
 from .propiedades import Termicas
 
 TOL_T = 1e-6       # °C, convergencia de los puntos fijos
-MAX_ITER = 200
+MAX_ITER = 200     # si no converge en 200 vueltas, algo anda mal: se corta con error
 
 
 @dataclass
 class Corriente:
     nombre: str
     m: float                              # kg/s
-    props: Callable[[float], Termicas]    # T [°C] → propiedades
+    # Callable[[float], Termicas]: guarda una FUNCIÓN que recibe una T y
+    # devuelve propiedades. Así la misma Corriente sirve para agua (IAPWS)
+    # o para cualquier producto (Choi–Okos), sin saber cuál es.
+    props: Callable[[float], Termicas]
 
     def C(self, T1: float, T2: float) -> float:
         """Capacidad calorífica m·cp en W/K, con cp a la T media."""
@@ -63,9 +76,12 @@ class Seccion:
 # ε-NTU en contracorriente
 # -----------------------------------------------------------------------------
 def eps_contracorriente(NTU: float, Cr: float) -> float:
+    """ε = (1 − e^(−NTU(1−Cr))) / (1 − Cr·e^(−NTU(1−Cr))). Shah y Sekulić (2003)."""
     if NTU < 0 or not 0 <= Cr <= 1:
         raise ValueError(f"NTU={NTU}, Cr={Cr} fuera de dominio")
     if abs(1 - Cr) < 1e-9:
+        # Con Cr = 1 la fórmula general da 0/0; el límite es NTU/(1+NTU).
+        # Es el caso de la regeneración: las dos rectas de T son paralelas.
         return NTU / (1 + NTU)
     e = math.exp(-NTU * (1 - Cr))
     return (1 - e) / (1 - Cr * e)
@@ -89,7 +105,9 @@ def temperatura_por_balance(c: Corriente, T_conocida: float, Q: float) -> float:
     """T de la otra punta de una corriente que intercambia Q [W].
 
     Q > 0: la corriente se calienta.  Q < 0: se enfría.  cp a la T media,
-    así que se itera.
+    así que se itera: para saber la T hace falta cp, y para cp hace falta la T.
+    Se arranca con cp a la T conocida y se corrige hasta que no cambia
+    (punto fijo; con cp casi constante converge en 2 o 3 vueltas).
     """
     T = T_conocida + Q / c.C(T_conocida, T_conocida)
     for _ in range(MAX_ITER):
@@ -106,7 +124,13 @@ def temperatura_por_balance(c: Corriente, T_conocida: float, Q: float) -> float:
 def disenar_seccion(nombre: str, caliente: Corriente, fria: Corriente,
                     Tc_in: float, Tc_out: float, Tf_in: float, Tf_out: float,
                     U: float) -> Seccion:
-    """Área necesaria para cumplir las cuatro temperaturas dadas."""
+    """Área necesaria para cumplir las cuatro temperaturas dadas.
+
+    Las cuatro T tienen que cerrar el balance (lo que pierde la caliente lo
+    gana la fría); si no, es un error de quien llama, no del intercambiador.
+    """
+    # En contracorriente, cada punta enfrenta la entrada de una con la salida
+    # de la otra. Si en alguna punta la fría queda más caliente, hay cruce.
     if Tc_in <= Tf_out or Tc_out <= Tf_in:
         raise ValueError(
             f"{nombre}: cruce de temperaturas (caliente {Tc_in:.2f}→{Tc_out:.2f}, "
@@ -130,11 +154,15 @@ def disenar_seccion(nombre: str, caliente: Corriente, fria: Corriente,
 
 def verificar_seccion(nombre: str, caliente: Corriente, fria: Corriente,
                       Tc_in: float, Tf_in: float, A: float, U: float) -> Seccion:
-    """Temperaturas de salida de una sección de área A conocida."""
+    """Temperaturas de salida de una sección de área A conocida.
+
+    Punto fijo: las salidas dependen de cp, y cp de las salidas (T media).
+    Se arranca suponiendo que no intercambian nada y se itera.
+    """
     if Tc_in <= Tf_in:
         raise ValueError(f"{nombre}: la corriente caliente entra más fría que la fría")
     Tc_out, Tf_out = Tc_in, Tf_in  # arranque: sin intercambio
-    for _ in range(MAX_ITER):
+    for _ in range(MAX_ITER):  # el _ es una variable que no se usa: solo cuenta vueltas
         C_c = caliente.C(Tc_in, Tc_out)
         C_f = fria.C(Tf_in, Tf_out)
         C_min, C_max = min(C_c, C_f), max(C_c, C_f)

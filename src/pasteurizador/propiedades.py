@@ -2,6 +2,10 @@
 
 Térmicas (ρ, cp, k): por composición con Choi y Okos (1986), la misma fuente
 que usa el modelo del secador, así los dos equipos hablan el mismo idioma.
+La idea: un alimento es una mezcla de agua, proteína, grasa, carbohidratos y
+cenizas; cada uno tiene su polinomio en T, y la mezcla se arma como una regla
+de mezclas (como el cp de una solución ideal).
+
 Reología (K, n): medida, porque Choi–Okos no la da. Una función por producto.
 
 Todas las temperaturas en °C. Salidas en SI: kg/m³, J/(kg·K), W/(m·K), Pa·sⁿ.
@@ -76,9 +80,13 @@ def choi_okos(composicion: dict[str, float], T: float) -> Termicas:
         raise ValueError(f"La composición suma {suma:.4f}; tiene que sumar 1 (±0,01)")
 
     x = {i: composicion.get(i, 0.0) / suma for i in COMPONENTES}  # normaliza
+    # cp: cada kg de mezcla es x_i kg de cada componente → promedio másico
     cp = sum(x[i] * _poli(_CHOI_OKOS[i]["cp"], T) for i in COMPONENTES) * 1000.0
+    # ρ: los volúmenes se suman (1/ρ = Σ x_i/ρ_i), como en una mezcla ideal
     rho_i = {i: _poli(_CHOI_OKOS[i]["rho"], T) for i in COMPONENTES}
     rho = 1.0 / sum(x[i] / rho_i[i] for i in COMPONENTES)
+    # k: el calor cruza por los componentes en paralelo, cada uno según el
+    # volumen que ocupa (como resistencias en paralelo)
     phi = {i: x[i] / rho_i[i] * rho for i in COMPONENTES}  # fracción volumétrica
     k = sum(phi[i] * _poli(_CHOI_OKOS[i]["k"], T) for i in COMPONENTES)
     return Termicas(rho=rho, cp=cp, k=k)
@@ -120,8 +128,11 @@ class Reologia:
 def _leon_munguia_huevo_entero(T: float) -> Reologia:
     """Huevo entero, León Munguía (tesis UNAM): K = 0,1·(0,0689 − 0,0007·T), n = 0,955.
 
-    Medido entre 10 y 40 °C. Fuera de ese rango es extrapolación lineal y no ve
-    la subida de viscosidad por desnaturalización que empieza cerca de 56 °C.
+    Medido entre 10 y 40 °C. Fuera de ese rango es extrapolación lineal. En el
+    tubo (60 °C) la viscosidad real puede ser algo mayor: el huevo entero
+    empieza a espesar cerca de 56 °C, aunque no coagula hasta ~73 °C
+    (manual AEB). Más viscoso en laminar no cambia el largo (el factor depende
+    de n, no de K), pero sí sube el Δp.
     """
     avisos = []
     if not 10.0 <= T <= 40.0:
@@ -173,11 +184,15 @@ _MU_CP_30C = 9.3e-3  # Pa·s: Thapon y Bourgeois, interpolado a 23 % de sólidos
 
 
 def _clara_uf_thapon_scalzo(T: float) -> Reologia:
-    """Clara concentrada (23 % sólidos): newtoniana.
+    """Clara concentrada (23 % sólidos), estabilizada: newtoniana.
 
     μ(T) = 9,3 mPa·s × μ_Scalzo(T)/μ_Scalzo(30 °C). El nivel sale de Thapon
     (concentración) y la forma con T de Scalzo (clara al 12 %): supuesto declarado.
     Sobre 50 °C se extrapola ln μ con el último tramo.
+
+    Es clara estabilizada con ácido láctico (pH ~7) y sal de aluminio, la misma
+    condición de Scalzo. Esa estabilización es la que permite pasteurizarla a
+    60 °C sin que coagule (Cunningham y Lineweaver, 1965).
     """
     avisos = []
     ln_mu = np.log(_SCALZO_MU)
@@ -185,17 +200,13 @@ def _clara_uf_thapon_scalzo(T: float) -> Reologia:
         avisos.append(
             f"CP: forma μ(T) extrapolada a {T:.1f} °C (Scalzo entre 5 y 50 °C)"
         )
+        # Fuera de la tabla: se prolonga la recta del tramo más cercano en ln μ
         i0, i1 = (0, 1) if T < _SCALZO_T[0] else (-2, -1)
         pend = (ln_mu[i1] - ln_mu[i0]) / (_SCALZO_T[i1] - _SCALZO_T[i0])
         mu_rel = np.exp(ln_mu[i0] + pend * (T - _SCALZO_T[i0]))
     else:
         mu_rel = np.exp(np.interp(T, _SCALZO_T, ln_mu))
     mu_30 = np.exp(np.interp(30.0, _SCALZO_T, ln_mu))
-    if T > 56.7:
-        avisos.append(
-            "CP: sobre 56,7 °C la clara empieza a desnaturalizar y su viscosidad "
-            "sube (manual AEB); el modelo no lo ve"
-        )
     return Reologia(K=float(_MU_CP_30C * mu_rel / mu_30), n=1.0, avisos=avisos)
 
 
@@ -207,6 +218,10 @@ _REOLOGIAS = {
 
 
 def reologia(modelo: str, T: float) -> Reologia:
+    """K y n del modelo pedido a T. El nombre del modelo viene del YAML."""
+    # _REOLOGIAS[modelo] devuelve la función; el (T) la llama.
+    # try/except: si el nombre no existe, en vez de un error críptico se
+    # explica cuáles hay.
     try:
         return _REOLOGIAS[modelo](T)
     except KeyError:
@@ -221,6 +236,9 @@ def reologia(modelo: str, T: float) -> Reologia:
 P_AGUA_MPA = 0.3  # presión de servicio supuesta; en líquido casi no influye
 
 
+# @lru_cache: la función recuerda los resultados ya calculados. IAPWS es lento
+# y los puntos fijos piden el agua a la misma T cientos de veces; con la T
+# redondeada a 0,01 °C, la segunda vez la respuesta sale de memoria.
 @lru_cache(maxsize=4096)
 def _agua_cache(T_redondeada: float) -> Termicas:
     w = IAPWS97(T=T_redondeada + 273.15, P=P_AGUA_MPA)

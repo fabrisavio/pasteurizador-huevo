@@ -1,4 +1,4 @@
-# Pseudocódigo: modelo paramétrico del pasteurizador (v0.4: v0.2 implementada el 31/10)
+# Pseudocódigo: modelo paramétrico del pasteurizador (v0.6: v0.4 implementada el 02/11)
 
 > **Cambios al implementar v0** (respecto de la v0.2 aprobada):
 > - Agua con el paquete `iapws` (IAPWS-IF97, Python puro) en vez de CoolProp (IAPWS-95): en agua líquida difieren muy poco y se instala en cualquier compu sin compilar.
@@ -7,7 +7,9 @@
 > - La verificación corre cada producto en los dos extremos de su rango de T de entrada.
 > - El reporte separa **alertas** (algo no cumple) de **avisos** (supuestos, extrapolaciones, datos para otros equipos).
 > - v0 ya incluye los tres productos y Metzner–Reed en el tubo; quedan para v1 las correlaciones de h y f, el Δp de placas y el chequeo de CIP.
-> - **v0.2 (31/10):** opción de tubo enrollado (`geometria: espiral`). Sube la fricción con White (1929) en laminar e Ito (1959) en turbulento, corre el Re crítico a 2·10⁴·(D/Dc)^0,32 y calcula vueltas y altura. El largo se sigue diseñando con el factor de tubo recto; una tabla de sensibilidad muestra cuánto se acortaría si el ensayo de trazador midiera un factor menor. La config base pasa a espiral de 1 m, y con eso el DN elegido pasa de 32 a 40.
+> - **v0.2 (31/10):** opción de tubo enrollado (`geometria: espiral`). Sube la fricción con White (1929) en laminar e Ito (1959) en turbulento, corre el Re crítico a 2·10⁴·(D/Dc)^0,32 y calcula vueltas y altura. La config base pasa a espiral de 1 m, y con eso el DN elegido pasa de 32 a 40.
+> - **v0.3 (02/11):** la partícula más rápida en la hélice se toma de literatura: t_min/t_medio = 0,586, el extremo bajo de Ruthven (1971) y Trivedi y Vasudeva (1974), revisados por Gutierrez et al. (2010), que midieron ≥ 0,70. v_max/v_media = min(1/0,586; (3n+1)/(n+1)) si Dean > 11,6; si no, el de tubo recto. El tubo pasa de 106 m a 94 m. El reporte compara con el mismo DN en recto. Además: recorrido de T del producto en consola y reporte, puntos de la validación con nombre y esquema, la clara se documenta como estabilizada con láctico y aluminio (por eso soporta 60 °C), y mensaje claro si la config no existe.
+> - **v0.4 (02/11):** la pérdida de T en el tubo se calcula: el tubo es un intercambiador contra el ambiente (Cr = 0), ΔT = (T_sale − T_amb)·(exp(UA/C) − 1). Dos formas de aislar: coquilla a lo largo del tubo, o camisa desmontable alrededor de toda la espiral (bloque). Se itera tubo ↔ pérdida por punto fijo. El reporte compara las dos, incluidas las placas de calentamiento que pide cada una (bloque 24, coquilla 27). Margen de control de 0,5 °C sobre la T legal: el tubo sale a T_legal + margen y el calentamiento entrega eso más la pérdida; los log se siguen contando a la T legal. Factor 1,4 sobre el Δp del tubo por la incertidumbre de K de la yema (sin él DN32 entraba con 1 % de margen).
 
 Pasteurizador de placas (PHE) con regeneración y calentamiento con agua caliente, más tubo de retención (holding tube). Sin sección de enfriamiento, porque los tres productos salen a 45 °C directo al secador.
 
