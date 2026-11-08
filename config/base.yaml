@@ -1,5 +1,5 @@
 # =============================================================================
-# Configuración base del pasteurizador (v0.4)
+# Configuración base del pasteurizador (v0.5, cierre de v0)
 #
 # Unidades prácticas acá (kg/h, °C, min, bar). El código pasa todo a SI al
 # cargar, salvo las temperaturas, que quedan en °C porque así están escritas
@@ -19,10 +19,12 @@ productos:
     caudal_kg_h: 798                    # balance de masa del grupo (RESUMEN.xlsx)
     T_entrada_C: 10                     # diseño; rango de operación 10–25 °C
     T_entrada_rango_C: [10, 25]
+    pH: 7.6                             # informativo [cunningham1995pasteurization], p. 292
     T_holding_C: 60.0                   # safe harbor [fsis2026guideline], [rbn1994cap15]
     t_holding_min: 3.5
     T_salida_C: 45                      # salida al secador; más frío se acepta (31/10)
     T_max_agua_C: 63                    # tope de T de pared en calentamiento
+    T_espesa_C: 56                      # empieza a subir la viscosidad; coagula a ~73 °C [froning2002manual], p. 3
     composicion:                        # fracción másica; balance del grupo, Tabla 2
       agua: 0.7651
       proteina: 0.126
@@ -39,10 +41,12 @@ productos:
     caudal_kg_h: 1083
     T_entrada_C: 7                      # tanque a 7 °C [fsis2026guideline]
     T_entrada_rango_C: [7, 7.2]
+    pH: 6.2                             # informativo [cunningham1995pasteurization], p. 292
     T_holding_C: 61.1                   # safe harbor [fsis2026guideline]
     t_holding_min: 3.5
     T_salida_C: 45
     T_max_agua_C: 64
+    T_espesa_C: 65                      # la viscosidad empieza a subir a 65 °C [froning2002manual], p. 3
     composicion:                        # yema comercial, USDA vía [froning2002manual], Tabla 1
       agua: 0.562
       proteina: 0.155
@@ -59,15 +63,23 @@ productos:
     caudal_kg_h: 822.4
     T_entrada_C: 35                     # salida de la UF (dato SANOVO)
     T_entrada_rango_C: [35, 35]
-    # 60 °C es posible porque la clara se estabiliza antes de pasteurizar:
-    # ácido láctico hasta pH ~7 y sal de aluminio, que forma un complejo
-    # termoestable con la ovotransferrina, la proteína más sensible
-    # [cunningham1965stabilizing], [lineweaver1966patent], [froning2002manual].
-    # Así soporta 60–61,7 °C durante 3,5–4 min sin coagular. [rbn1994cap15] 15.2.11, con alumbre
-    T_holding_C: 60.0
-    t_holding_min: 3.5
+    # Ruta de la clara (decisión del 08/11, ver docs/justificacion_clara.tex):
+    # el desazucarado la deja a pH 7 (patente); al terminar, en el mismo tanque,
+    # se sube a pH 9,3 con NaOH diluida (~240 eq por lote de 14 t). A pH 9,3 la
+    # Salmonella resiste menos el calor y la conalbúmina es estable, así que
+    # alcanza con 56,7 °C. Se aparta del RBN 15.2.11 (60 °C × 3,5 min) y de su
+    # lista de aditivos (la soda no figura para huevo): desvíos declarados.
+    pH: 9.3
+    T_holding_C: 56.7                   # [fsis2026guideline], Ap. III, Tabla III.A, pH 9,3 (5,7 log)
+    t_holding_min: 4.96                 # misma tabla; [froning2002manual], Tabla 29, da 4,3 min para 5 log
     T_salida_C: 45
-    T_max_agua_C: 62
+    # A pH ~9 la clara admite calentarse hasta 59 °C sin problemas en un
+    # intercambiador de placas; a 60 °C aparecen cambios que traban el equipo
+    # [cunningham1995pasteurization], p. 296.
+    T_max_agua_C: 59
+    # Empieza a espesar entre 56,7 y 57,2 °C a pH 9 [cunningham1995pasteurization], pp. 290–291.
+    # En equipos comerciales: 57 °C × 4 min y 58 °C × 7,5 min sin cambio de viscosidad (p. 296–297).
+    T_espesa_C: 56.7
     composicion:
       agua: 0.77
       proteina: 0.203
@@ -76,7 +88,9 @@ productos:
       cenizas: 0.0116
     termicas: choi_okos
     reologia: clara_uf_thapon_scalzo    # 9,3 mPa·s a 30 °C [thapon1981]; forma μ(T) de [scalzo1970viscosity]
-    cinetica: {D_ref_min: 0.136, T_ref_C: 60.0, z_C: 2.62}  # pH 7,8 [fsis2026guideline]; a pH 7 es extrapolación
+    # D y z a pH 9,3: ajuste log-lineal de la Tabla III.A de [fsis2026guideline]
+    # (54,4–58,9 °C, D = t/5,7; residuo máximo 0,011 log). Mismo método que HP y YP.
+    cinetica: {D_ref_min: 0.854, T_ref_C: 56.7, z_C: 4.17}
     horas_anio: 216
 
 equipo:

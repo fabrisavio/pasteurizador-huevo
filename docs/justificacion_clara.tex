@@ -1,0 +1,114 @@
+% =============================================================================
+% Justificación de la ruta de pasteurización de la clara concentrada (CP)
+% Decisión del equipo: 08/11/2026. Listo para pegar en el informe (biblatex).
+% Claves en docs/fuentes.bib. Los números salen del modelo v0.5.0.
+% Sin siunitx ni mhchem: unidades escritas a mano, como en el resto del informe.
+% =============================================================================
+
+\subsubsection{Pasteurización de la clara concentrada}
+
+El Reglamento Bromatológico Nacional exige que el huevo líquido y sus componentes
+destinados a desecación se pasteuricen a 60~°C durante 3,5~min
+\parencite[art.~15.2.11]{rbn1994cap15}. Para la clara de este proyecto esa condición
+choca con dos hechos.
+
+El primero es el pH. Tras el desazucarado la clara queda a pH~7, valor tomado de la
+patente del proceso. A pH neutro la mayoría de las proteínas de la clara son más
+estables, con una excepción: la conalbúmina (ovotransferrina) es muy lábil a pH~7
+\parencite[p.~298]{cunningham1995pasteurization}. A pH~9, en cambio, la clara empieza a
+espesar entre 56,7~°C y 57,2~°C y coagula rápidamente a
+60~°C \parencite[pp.~290--291]{cunningham1995pasteurization}.
+
+El segundo es la letalidad. \textit{Salmonella} es más resistente al calor cuanto más
+bajo es el pH \parencite[p.~292]{cunningham1995pasteurization}. A pH~7,8, la guía de FSIS
+pide 15,4~min a 56,7~°C para lograr 5,7 reducciones decimales
+\parencite[Tabla~III.A]{fsis2026guideline}: bajar la temperatura a pH neutro no es viable.
+
+\paragraph{Alternativas evaluadas.} Se compararon tres rutas.
+\begin{enumerate}
+  \item Estabilizar la clara a pH~7 con una sal de aluminio y pasteurizar a
+        60~°C \parencite{cunningham1965stabilizing,lineweaver1966patent}.
+        Exige superar el límite de alumbre de la lista positiva del RBN
+        \parencite{rbn1994cap15}, y el citrato agregado en el desazucarado compite
+        por el aluminio, lo que vuelve incierta la dosis.
+  \item Combinar calor moderado con peróxido de hidrógeno (métodos Armour y Standard
+        Brands, \cite[pp.~21--23]{froning2002manual}). Después del desazucarado la clara
+        contiene catalasa fúngica, que no se inactiva con el precalentamiento del método
+        \parencite{milek2020catalase} y descompone el peróxido. Aplicarlo antes del
+        desazucarado obliga a pasteurizar la clara el mismo día que la yema, lo que con
+        el calendario de campañas requiere un segundo pasteurizador.
+  \item Llevar la clara a pH~9,3 con hidróxido de sodio al terminar el desazucarado y
+        pasteurizar con el par tiempo--temperatura que corresponde a ese pH. Es la ruta
+        adoptada.
+\end{enumerate}
+
+\paragraph{Ruta adoptada.} Al finalizar el desazucarado, en el mismo tanque, se agrega
+hidróxido de sodio diluido (del orden de 1~mol/L), lentamente y con
+agitación, hasta pH~9,3. La adición lenta evita la gelificación local que produce un
+álcali concentrado sobre las proteínas de la clara. Subir el pH reduce la resistencia
+térmica de \textit{Salmonella} \parencite[p.~21]{fsis2026guideline}, y a pH~9,3 la
+conalbúmina deja de ser el factor limitante.
+
+El tratamiento se toma de la Tabla~III.A de FSIS para clara a pH~9,3:
+56,7~°C durante 4,96~min, que asegura 5,7 reducciones decimales
+\parencite{fsis2026guideline}. Es coherente con la guía del manual internacional de
+pasteurización, que indica 56,7~°C durante 4,3~min para 5
+reducciones con pH ajustado \parencite[Tabla~29]{froning2002manual}. Las constantes
+cinéticas usadas en el modelo ($D_{56{,}7} = 0{,}854$~min y $z = 4{,}17$~°C)
+surgen de un ajuste log-lineal de esa tabla entre 54,4~°C y
+58,9~°C, con un residuo máximo de 0,011 log.
+
+La temperatura del agua caliente se limita a 59~°C: en un intercambiador de
+placas la clara a pH natural admite calentarse hasta esa temperatura sin
+inconvenientes, mientras que a 60~°C aparecen cambios que traban el equipo
+\parencite[p.~296]{cunningham1995pasteurization}. En el tubo de retención la clara opera
+a 57,2~°C--57,5~°C, dentro de la zona de inicio del espesamiento;
+en equipos comerciales se reportan 57~°C durante 4~min y
+58~°C durante 7,5~min sin cambios de viscosidad
+\parencite[pp.~296--297]{cunningham1995pasteurization}.
+
+\paragraph{Dosis de base.} No hace falta modelar la capacidad tampón de las proteínas: la
+dosis de ácido cítrico de la patente ya mide cuánto ácido lleva esta clara hasta pH~7.
+Se agregan 295,5~L de solución 0,25~mol/L por lote
+(73,9~mol, 14,2~kg de ácido anhidro). A pH~7 cada molécula libera
+en promedio 2,8 protones (p$K_a$ = 3,13; 4,76; 6,40), es decir, unos
+207~mol de H$^+$. Volver a pH~9,3 requiere del orden de
+240~mol de NaOH por lote de 14~t
+(9,6~kg, 0,7~g/kg de clara). La estimación es
+conservadora, porque el CO$_2$ desprendido al acidificar no vuelve. En operación se
+dosifica hasta el pH objetivo medido, no una cantidad fija. El sodio agregado es de unos
+0,4~g/kg de clara líquida, frente a 1,6~g/kg
+naturales \parencite[Tabla~1]{froning2002manual}; la ultrafiltración posterior elimina
+parte con el permeado.
+
+\paragraph{Control.} La letalidad pasa a depender del pH, que se convierte en un punto
+crítico de control. Se mide en el pulmón previo al pasteurizador. El tiempo de
+4,96~min vale para pH~9,3; a pH~8,8 la misma temperatura exige
+10,2~min \parencite[Tabla~III.A]{fsis2026guideline}. Por debajo de pH~9,3 el
+producto no se pasteuriza. Por arriba, el RBN fija un máximo de pH~9,6 para la clara
+\parencite[art.~15.2.7]{rbn1994cap15}. La ventana de operación es entonces pH~9,3--9,6, y
+el tanque se mantiene cerrado para limitar la absorción de CO$_2$, que haría bajar el
+pH.
+
+\paragraph{Apartamientos del RBN.} La ruta se aparta del reglamento en dos puntos, que se
+declaran y justifican con normativa de otros reguladores.
+\begin{enumerate}
+  \item \textbf{Tiempo y temperatura} (art.~15.2.11): 56,7~°C durante
+        4,96~min en lugar de 60~°C durante 3,5~min.
+        Se justifica con el estándar de desempeño de FSIS y su Tabla~III.A
+        \parencite{fsis2026guideline,fsis2020rule} y con el manual internacional de
+        pasteurización \parencite{froning2002manual}.
+  \item \textbf{Hidróxido de sodio como aditivo}: no figura en la lista positiva del
+        capítulo~15 para huevo. Health Canada lo habilita como regulador de pH en clara
+        líquida y congelada desde 2013 \parencite{hc2013naoh}; en Estados Unidos es una
+        sustancia GRAS como regulador de pH, sin límite de categoría
+        \parencite{cfr184_1763}; y el Codex lo admite según buenas prácticas en huevo
+        deshidratado (categoría 10.2.3), que es el producto que se comercializa
+        \parencite{codex1995gsfa}. La Unión Europea no lo autoriza en ovoproductos
+        \parencite{eu1333annexII}, pero no es mercado de destino de la clara.
+\end{enumerate}
+
+Como alternativa sin apartamiento en el aditivo se evaluó el pirofosfato tetrasódico,
+que sí figura en la lista del RBN para huevo líquido. Por ser una base débil a pH~9,3
+harían falta unos 115~kg por lote, que suman unos siete puntos de cenizas
+al polvo y 2,8~g de sodio por kilogramo de clara; se descartó.

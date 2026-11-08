@@ -157,10 +157,12 @@ def markdown(r: Resultado, origen: str = "") -> str:
     filas = []
     for k in claves:
         p, v = cfg.productos[k], r.en_diseno(k)
-        filas.append([f"{k} ({p.nombre})", p.m * 3600, v.T_entrada, v.T_regen_salida,
-                      v.T_calent_salida, cfg.T_operacion(p), p.T_holding, v.T_salida])
-    s.append(_tabla(["Producto", "Caudal (kg/h)", "Entra (°C)", "Sale de regeneración (°C)",
-                     "Entra al tubo (°C)", "Sale del tubo (°C)", "T legal (°C)",
+        ph = f"{p.pH:.1f}" if p.pH is not None else "—"
+        legal = f"{p.T_holding:.1f} °C × {p.t_holding/60:.2f} min"
+        filas.append([f"{k} ({p.nombre})", ph, legal, p.m * 3600, v.T_entrada, v.T_regen_salida,
+                      v.T_calent_salida, cfg.T_operacion(p), v.T_salida])
+    s.append(_tabla(["Producto", "pH", "Tratamiento legal", "Caudal (kg/h)", "Entra (°C)",
+                     "Sale de regeneración (°C)", "Entra al tubo (°C)", "Sale del tubo (°C)",
                      "Al secador (°C)"], filas))
     s.append(f"\nEl control trabaja {cfg.margen_control:.1f} °C por encima de la T legal "
              "(margen de control); el tubo pierde lo que va de la entrada a la salida.\n")

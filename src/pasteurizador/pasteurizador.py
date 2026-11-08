@@ -377,6 +377,15 @@ def correr(cfg: Config) -> Resultado:
     # avisos de propiedades: reología en el tubo y a la salida
     for p in cfg.productos.values():
         avisos += p.reologia(T_media_tubo(p, cfg, eq.perdida_tubo[p.clave])).avisos
+        # El producto más caliente está a la entrada del tubo. Si pasa la T donde
+        # empieza a espesar, las reologías medidas (que no llegan ahí) no lo ven.
+        T_max = cfg.T_operacion(p) + eq.perdida_tubo[p.clave]
+        if p.T_espesa is not None and T_max > p.T_espesa:
+            avisos.append(
+                f"{p.clave}: en el tubo llega a {T_max:.1f} °C y empieza a espesar desde "
+                f"{p.T_espesa:.1f} °C; la reología del modelo no lo ve: el Δp real del tubo "
+                "puede ser mayor"
+            )
         r = eq.tubo.elegido.productos[p.clave]
         if r.logs_min < cfg.logs_objetivo:
             avisos.append(

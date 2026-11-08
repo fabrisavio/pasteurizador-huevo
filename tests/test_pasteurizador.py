@@ -112,3 +112,24 @@ def test_sin_seccion_de_aislacion_usa_la_perdida_fija(tmp_path):
     r = correr(config.cargar(ruta))
     assert all(d == 0.5 for d in r.equipo.perdida_tubo.values())
     assert r.equipo.aislacion == {}
+
+
+def test_clara_por_la_ruta_de_la_soda(resultado):
+    # pH 9,3 y el par de FSIS Tabla III.A: 56,7 °C × 4,96 min
+    cp = resultado.cfg.productos["CP"]
+    assert cp.pH == pytest.approx(9.3)
+    assert cp.T_holding == pytest.approx(56.7)
+    assert cp.t_holding == pytest.approx(4.96 * 60)
+    # la partícula más rápida logra al menos los 5,7 log de la tabla
+    assert resultado.equipo.tubo.elegido.productos["CP"].logs_min >= 5.7 - 0.1
+
+
+def test_agua_de_la_clara_bajo_59(resultado):
+    for v in resultado.verificaciones["CP"]:
+        assert v.T_agua_necesaria <= 59.0
+
+
+def test_aviso_de_espesamiento_solo_donde_corresponde(resultado):
+    espesa = [a for a in resultado.avisos if "empieza a espesar" in a]
+    claves = {a.split(":")[0] for a in espesa}
+    assert claves == {"HP", "CP"}   # la yema recién espesa a 65 °C

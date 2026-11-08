@@ -184,15 +184,16 @@ _MU_CP_30C = 9.3e-3  # Pa·s: Thapon y Bourgeois, interpolado a 23 % de sólidos
 
 
 def _clara_uf_thapon_scalzo(T: float) -> Reologia:
-    """Clara concentrada (23 % sólidos), estabilizada: newtoniana.
+    """Clara concentrada (23 % sólidos): newtoniana.
 
     μ(T) = 9,3 mPa·s × μ_Scalzo(T)/μ_Scalzo(30 °C). El nivel sale de Thapon
-    (concentración) y la forma con T de Scalzo (clara al 12 %): supuesto declarado.
-    Sobre 50 °C se extrapola ln μ con el último tramo.
+    (clara concentrada, pH natural) y la forma con T de Scalzo, que midió clara
+    al 12 % estabilizada a pH 7: se supone que la forma con T no cambia con el
+    pH. Sobre 50 °C se extrapola ln μ con el último tramo.
 
-    Es clara estabilizada con ácido láctico (pH ~7) y sal de aluminio, la misma
-    condición de Scalzo. Esa estabilización es la que permite pasteurizarla a
-    60 °C sin que coagule (Cunningham y Lineweaver, 1965).
+    En la ruta elegida la clara se pasteuriza a pH 9,3 y 56,7 °C. A ese pH
+    empieza a espesar entre 56,7 y 57,2 °C (Cunningham, 1995); eso no está en
+    estos datos y se avisa aparte (T_espesa en la config).
     """
     avisos = []
     ln_mu = np.log(_SCALZO_MU)

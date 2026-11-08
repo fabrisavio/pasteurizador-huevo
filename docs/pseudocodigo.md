@@ -1,4 +1,4 @@
-# Pseudocódigo: modelo paramétrico del pasteurizador (v0.6: v0.4 implementada el 02/11)
+# Pseudocódigo: modelo paramétrico del pasteurizador (v0.7: v0.5 implementada el 08/11, cierre de v0)
 
 > **Cambios al implementar v0** (respecto de la v0.2 aprobada):
 > - Agua con el paquete `iapws` (IAPWS-IF97, Python puro) en vez de CoolProp (IAPWS-95): en agua líquida difieren muy poco y se instala en cualquier compu sin compilar.
@@ -10,6 +10,7 @@
 > - **v0.2 (31/10):** opción de tubo enrollado (`geometria: espiral`). Sube la fricción con White (1929) en laminar e Ito (1959) en turbulento, corre el Re crítico a 2·10⁴·(D/Dc)^0,32 y calcula vueltas y altura. La config base pasa a espiral de 1 m, y con eso el DN elegido pasa de 32 a 40.
 > - **v0.3 (02/11):** la partícula más rápida en la hélice se toma de literatura: t_min/t_medio = 0,586, el extremo bajo de Ruthven (1971) y Trivedi y Vasudeva (1974), revisados por Gutierrez et al. (2010), que midieron ≥ 0,70. v_max/v_media = min(1/0,586; (3n+1)/(n+1)) si Dean > 11,6; si no, el de tubo recto. El tubo pasa de 106 m a 94 m. El reporte compara con el mismo DN en recto. Además: recorrido de T del producto en consola y reporte, puntos de la validación con nombre y esquema, la clara se documenta como estabilizada con láctico y aluminio (por eso soporta 60 °C), y mensaje claro si la config no existe.
 > - **v0.4 (02/11):** la pérdida de T en el tubo se calcula: el tubo es un intercambiador contra el ambiente (Cr = 0), ΔT = (T_sale − T_amb)·(exp(UA/C) − 1). Dos formas de aislar: coquilla a lo largo del tubo, o camisa desmontable alrededor de toda la espiral (bloque). Se itera tubo ↔ pérdida por punto fijo. El reporte compara las dos, incluidas las placas de calentamiento que pide cada una (bloque 24, coquilla 27). Margen de control de 0,5 °C sobre la T legal: el tubo sale a T_legal + margen y el calentamiento entrega eso más la pérdida; los log se siguen contando a la T legal. Factor 1,4 sobre el Δp del tubo por la incertidumbre de K de la yema (sin él DN32 entraba con 1 % de margen).
+> - **v0.5 (08/11, cierre de v0):** ruta de la soda para la clara. Al terminar el desazucarado se lleva a pH 9,3 con NaOH diluida y se pasteuriza a 56,7 °C × 4,96 min (FSIS, Tabla III.A, pH 9,3, 5,7 log). Cinética de CP a pH 9,3 por ajuste log-lineal de esa tabla: D₅₆,₇ = 0,854 min, z = 4,17 °C. Agua caliente de CP ≤ 59 °C (Cunningham, p. 296). Nuevos campos `pH` (informativo) y `T_espesa_C` por producto: si el tubo supera la T de espesamiento, el reporte da un aviso (la reología no lo ve). El reporte muestra pH y tratamiento legal por producto. Con esto CP pasa a gobernar regeneración y tubo. Justificación lista para el informe en `docs/justificacion_clara.tex`. Reemplaza la estabilización con alumbre documentada en v0.3.
 
 Pasteurizador de placas (PHE) con regeneración y calentamiento con agua caliente, más tubo de retención (holding tube). Sin sección de enfriamiento, porque los tres productos salen a 45 °C directo al secador.
 
@@ -56,13 +57,15 @@ productos:
   CP:
     caudal_kg_h: 822.4
     T_entrada_C: {diseño: 35, rango: [35, 35]}
-    T_holding_C: 60.0
-    t_holding_min: 3.5
+    pH: 9.3                           # ruta de la soda (08/11): NaOH al final del desazucarado
+    T_holding_C: 56.7                 # FSIS Tabla III.A, pH 9,3 (5,7 log)
+    t_holding_min: 4.96
     T_salida_C: 45
-    T_max_agua_C: 62
+    T_max_agua_C: 59                  # Cunningham (1995), p. 296
+    T_espesa_C: 56.7                  # pp. 290–291: solo genera un aviso
     composicion: {agua: 0.77, proteina: 0.203, grasa: 0.0006, carbohidratos: 0.0148, cenizas: 0.0116}  # clara UF 23 %
     reologia: thapon                  # newtoniana, μ(T)
-    cinetica: {D_ref_min: 0.136, T_ref_C: 60.0, z_C: 2.62}  # pH 7,8: a pH 7 es extrapolación (declarada)
+    cinetica: {D_ref_min: 0.854, T_ref_C: 56.7, z_C: 4.17}  # ajuste de FSIS III.A a pH 9,3
     horas_anio: 216
 
 equipo:

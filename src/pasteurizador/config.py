@@ -34,6 +34,8 @@ class Producto:
     modelo_reologia: str
     cinetica: Cinetica
     horas_anio: float
+    pH: float | None = None        # informativo, sale en el reporte
+    T_espesa: float | None = None  # °C donde empieza a subir la viscosidad (aviso)
 
     # Métodos: funciones que viven dentro de la ficha. p.termicas(60) da ρ, cp, k
     # del producto p a 60 °C sin tener que pasarle su composición cada vez.
@@ -92,6 +94,8 @@ def _producto(clave: str, d: dict) -> Producto:
         modelo_reologia=d["reologia"],
         cinetica=Cinetica(**d["cinetica"]),  # ** reparte el diccionario en argumentos
         horas_anio=float(d["horas_anio"]),
+        pH=d.get("pH"),
+        T_espesa=d.get("T_espesa_C"),
     )
 
 

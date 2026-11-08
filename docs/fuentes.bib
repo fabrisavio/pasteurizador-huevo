@@ -81,6 +81,8 @@
 
 % [SECUNDARIA, vía base DECODE (IPB)] UE: E 520-523 en la categoría 10.2 (huevos y ovoproductos transformados),
 % 30 mg/kg EXPRESADO COMO ALUMINIO, solo clara. Si se cita, verificar en el texto oficial del Anexo II.
+% 08/11: en 10.2 NO figura E 524 (soda) ni el Grupo I; sí E 338-341 (fosfatos) en huevo líquido, 10 g/kg
+% como P2O5. La soda está en el Grupo I y en otras categorías (dulces, cacao, alimentos infantiles).
 @misc{eu1333annexII,
   author       = {{Unión Europea}},
   title        = {Reglamento ({CE}) N.º 1333/2008, Anexo {II}, categoría 10.2: {E} 520--523 sulfatos de aluminio},
@@ -132,6 +134,11 @@
 % Usado: Tabla 1 composición (USDA ARS 2000); Tabla 3 viscosidad/densidad (Scalzo et al., 1970);
 % Tabla 6 requisitos USDA; Tablas 10 y 19 D de clara vs pH (base de FSIS III.A);
 % métodos para clara (láctico + Al; H2O2; vacío); flujo laminar en holding tube (p. 4).
+% 08/11: Tabla 29 (p. 23): clara con pH ajustado 56,7 °C x 4,3 min (5 log); sin ajustar 57,7 °C x 6,3 min.
+% Texto p. 22: a 56,7 °C hace falta ajustar el pH (~9,3); a pH 9,3 y 56,7 °C, 4,25 min dan 5 log.
+% Tablas 27-28 y pp. 21-23: métodos Armour y Standard Brands con H2O2 (estudio de Robertson y Muriana,
+% 2004, leído acá); en los ensayos, el pH de la clara se ajustó con NaOH o HCl 1 N.
+% p. 3: entero espesa de 56 a 66 °C y coagula a 73 °C; la yema empieza a espesar a 65 °C.
 @manual{froning2002manual,
   author       = {Froning, G. W. and Peters, D. and Muriana, P. and Eskridge, K. and Travnicek, D. and Sumner, S. S.},
   title        = {International egg pasteurization manual},
@@ -652,4 +659,49 @@
   publisher    = {John Wiley \& Sons},
   location     = {Hoboken},
   date         = {2007},
+}
+
+% [CONSULTADA 08/11/2026, web] Habilita la soda como regulador de pH en clara líquida y congelada,
+% vigente desde el 02/07/2013 (documento NOM/ADM-0012). Antecedente directo de la ruta de la clara.
+@online{hc2013naoh,
+  author       = {{Health Canada}},
+  title        = {Notice of modification to the lists of permitted food additives to enable the use of sodium hydroxide as a pH adjusting agent in liquid and frozen egg white},
+  date         = {2013-06-04},
+  url          = {https://www.canada.ca/en/health-canada/services/food-nutrition/public-involvement-partnerships/modification-lists-permitted-food-additives-use-sodium-hydroxide-adjusting-agent-liquid-frozen-egg-white.html},
+  urldate      = {2026-11-08},
+}
+
+% [CONSULTADA 08/11/2026, web] Soda GRAS como regulador de pH y coadyuvante de proceso, a niveles de
+% buenas prácticas de fabricación y sin límite de categoría.
+@online{cfr184_1763,
+  author       = {{United States, Code of Federal Regulations}},
+  title        = {21 {CFR} 184.1763 Sodium hydroxide},
+  url          = {https://www.law.cornell.edu/cfr/text/21/184.1763},
+  urldate      = {2026-11-08},
+}
+
+% [CONSULTADA 08/11/2026, web] Norma general de aditivos. Anexo a la Tabla 3: excluye de las buenas
+% prácticas generales a 10.1 (huevo fresco), 10.2.1 (huevo líquido) y 10.2.2 (congelado); NO excluye
+% 10.2.3 (huevo deshidratado). A VERIFICAR: la fila de la soda (INS 524) en la Tabla 3 (no se pudo abrir).
+@manual{codex1995gsfa,
+  author       = {{Codex Alimentarius Commission}},
+  title        = {General standard for food additives ({CXS} 192-1995)},
+  organization = {FAO/WHO},
+  date         = {1995},
+  note         = {Versión en línea GSFA Online, Tabla 3 y su Anexo},
+  url          = {https://www.fao.org/gsfaonline/reference/table3annex.html},
+  urldate      = {2026-11-08},
+}
+
+% [CONSULTADA 06/11/2026, resumen] Catalasa de Aspergillus niger a pH 7: vida media 197 h a 35 °C y
+% 1,3 h a 70 °C. Base para descartar el H2O2 después del desazucarado (la catalasa no muere a 52 °C).
+@article{milek2020catalase,
+  author       = {Miłek, Justyna},
+  title        = {Thermodynamics and kinetics of thermal deactivation of catalase \textit{Aspergillus niger}},
+  journaltitle = {Polish Journal of Chemical Technology},
+  volume       = {22},
+  number       = {2},
+  pages        = {67--72},
+  date         = {2020},
+  doi          = {10.2478/pjct-2020-0018},
 }
