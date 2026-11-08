@@ -7,8 +7,10 @@ Dos modos:
 - diseñar: se conocen las cuatro temperaturas → área necesaria.
 - verificar: se conoce el área y las dos entradas → salidas.
 
-v0: U constante por sección, dado desde la config. Las propiedades se evalúan
-a la T media de cada corriente, que es lo que recomiendan Gut et al. (2003).
+U puede ser un número (v0: constante por sección, dado desde la config) o
+una función de las cuatro temperaturas de la sección (v1: sale de los h de
+cada lado, que dependen de las propiedades). En los dos casos las propiedades
+se evalúan a la T media de cada corriente, como recomiendan Gut et al. (2003).
 
 Repaso de ε-NTU, en el idioma de este código:
 - C = m·cp [W/K] de cada corriente. C_min es la que "manda": es la que más
@@ -25,9 +27,16 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import Callable
+from typing import Callable, Union
 
 from .propiedades import Termicas
+
+# U fijo [W/(m²·K)] o U(Tc_in, Tc_out, Tf_in, Tf_out)
+ValorU = Union[float, Callable[[float, float, float, float], float]]
+
+
+def evaluar_U(U: ValorU, Tc_in: float, Tc_out: float, Tf_in: float, Tf_out: float) -> float:
+    return U(Tc_in, Tc_out, Tf_in, Tf_out) if callable(U) else float(U)
 
 TOL_T = 1e-6       # °C, convergencia de los puntos fijos
 MAX_ITER = 200     # si no converge en 200 vueltas, algo anda mal: se corta con error
@@ -123,7 +132,7 @@ def temperatura_por_balance(c: Corriente, T_conocida: float, Q: float) -> float:
 # -----------------------------------------------------------------------------
 def disenar_seccion(nombre: str, caliente: Corriente, fria: Corriente,
                     Tc_in: float, Tc_out: float, Tf_in: float, Tf_out: float,
-                    U: float) -> Seccion:
+                    U: ValorU) -> Seccion:
     """Área necesaria para cumplir las cuatro temperaturas dadas.
 
     Las cuatro T tienen que cerrar el balance (lo que pierde la caliente lo
@@ -147,17 +156,19 @@ def disenar_seccion(nombre: str, caliente: Corriente, fria: Corriente,
     Cr = C_min / C_max
     eps = Q / (C_min * (Tc_in - Tf_in))
     NTU = ntu_contracorriente(eps, Cr)
-    A = NTU * C_min / U
-    return Seccion(nombre, A, U, Q, NTU, eps, Cr, Tc_in, Tc_out, Tf_in, Tf_out,
+    U_val = evaluar_U(U, Tc_in, Tc_out, Tf_in, Tf_out)
+    A = NTU * C_min / U_val
+    return Seccion(nombre, A, U_val, Q, NTU, eps, Cr, Tc_in, Tc_out, Tf_in, Tf_out,
                    caliente.m, fria.m)
 
 
 def verificar_seccion(nombre: str, caliente: Corriente, fria: Corriente,
-                      Tc_in: float, Tf_in: float, A: float, U: float) -> Seccion:
+                      Tc_in: float, Tf_in: float, A: float, U: ValorU) -> Seccion:
     """Temperaturas de salida de una sección de área A conocida.
 
-    Punto fijo: las salidas dependen de cp, y cp de las salidas (T media).
-    Se arranca suponiendo que no intercambian nada y se itera.
+    Punto fijo: las salidas dependen de cp (y de U, si es función), y esos
+    dependen de las salidas (T media). Se arranca suponiendo que no
+    intercambian nada y se itera.
     """
     if Tc_in <= Tf_in:
         raise ValueError(f"{nombre}: la corriente caliente entra más fría que la fría")
@@ -167,13 +178,14 @@ def verificar_seccion(nombre: str, caliente: Corriente, fria: Corriente,
         C_f = fria.C(Tf_in, Tf_out)
         C_min, C_max = min(C_c, C_f), max(C_c, C_f)
         Cr = C_min / C_max
-        NTU = U * A / C_min
+        U_val = evaluar_U(U, Tc_in, Tc_out, Tf_in, Tf_out)
+        NTU = U_val * A / C_min
         eps = eps_contracorriente(NTU, Cr)
         Q = eps * C_min * (Tc_in - Tf_in)
         Tc_nueva = Tc_in - Q / C_c
         Tf_nueva = Tf_in + Q / C_f
         if abs(Tc_nueva - Tc_out) < TOL_T and abs(Tf_nueva - Tf_out) < TOL_T:
-            return Seccion(nombre, A, U, Q, NTU, eps, Cr, Tc_in, Tc_nueva,
+            return Seccion(nombre, A, U_val, Q, NTU, eps, Cr, Tc_in, Tc_nueva,
                            Tf_in, Tf_nueva, caliente.m, fria.m)
         Tc_out, Tf_out = Tc_nueva, Tf_nueva
     raise RuntimeError(f"{nombre}: la verificación no converge")

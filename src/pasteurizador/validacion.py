@@ -29,8 +29,9 @@ from pathlib import Path
 import yaml
 from scipy.optimize import brentq
 
+from . import placas as pl
 from . import propiedades as pr
-from .seccion_phe import Corriente, verificar_seccion
+from .seccion_phe import Corriente, temperatura_por_balance, verificar_seccion
 
 # Qué es cada punto, en palabras. Mismo orden que la Tabla 7 de Gut.
 PUNTOS = {
@@ -107,3 +108,73 @@ def validar(ruta: str | Path) -> ResultadoValidacion:
                             A["enfriamiento"], U["enfriamiento"])
     calculado = {"T2": reg.Tf_out, "T3": cal.Tf_out, "T4": T4, "T5": reg.Tc_out, "T6": enf.Tc_out}
     return ResultadoValidacion(calculado, c["esperado_C"], c["tolerancia_C"], T1)
+
+
+# -----------------------------------------------------------------------------
+# Chequeo del U de Gut (v1)
+# -----------------------------------------------------------------------------
+@dataclass
+class ChequeoU:
+    seccion: str
+    U_publicado: float
+    U_calculado: float
+    h_caliente: float
+    h_fria: float
+
+    @property
+    def relacion(self) -> float:
+        return self.U_publicado / self.U_calculado
+
+
+def chequear_U_gut(ruta: str | Path) -> list[ChequeoU]:
+    """U de cada sección con la correlación y los datos que publica Gut.
+
+    No es una validación que tenga que pasar: muestra si el U que v0 tomó de
+    Gut (Tabla 7) se puede reconstruir con lo que dice el propio paper.
+    """
+    with open(ruta, encoding="utf-8") as f:
+        c = yaml.safe_load(f)
+    ch = c["chequeo_U"]
+    placa = pl.Placa(area=c["placa"]["largo_m"] * c["placa"]["ancho_m"], ancho=c["placa"]["ancho_m"],
+                     b=ch["placa"]["b_m"], angulo=45.0, phi=c["placa"]["factor_area"],
+                     espesor=ch["placa"]["espesor_m"], k=ch["placa"]["k_W_mK"], D_puerto=0.05)
+    yema = pl.Fluido("yema", lambda T: pr.termicas(c["producto"]["termicas"], None, T),
+                     lambda T: pr.reologia("gut2003_yema", T))
+    T1 = c["producto"]["T_entrada_C"]
+    m = c["producto"]["caudal_L_h"] / 3.6e6 * yema.termicas(T1).rho
+    T = ch["T_constant_U_C"]
+    mw_c, mw_f = c["agua_caliente"]["caudal_kg_s"], c["agua_fria"]["caudal_kg_s"]
+    Tw_c, Tw_f = c["agua_caliente"]["T_entrada_C"], c["agua_fria"]["T_entrada_C"]
+
+    # Salida de cada agua por balance con la yema
+    y = Corriente("yema", m, yema.termicas)
+    Q_cal = y.C(T["T2"], T["T3"]) * (T["T3"] - T["T2"])
+    Q_enf = y.C(T["T5"], T["T6"]) * (T["T5"] - T["T6"])
+    Tw_c_sale = temperatura_por_balance(Corriente("agua", mw_c, pr.agua), Tw_c, -Q_cal)
+    Tw_f_sale = temperatura_por_balance(Corriente("agua", mw_f, pr.agua), Tw_f, Q_enf)
+
+    def arr(sec, lado):
+        return pl.Arreglo(*ch["arreglos"][sec][lado])
+
+    casos = {
+        "regeneracion": (pl.Lado(yema, m, arr("regeneracion", "caliente")), (T["T4"] + T["T5"]) / 2,
+                         pl.Lado(yema, m, arr("regeneracion", "fria")), (T1 + T["T2"]) / 2),
+        "calentamiento": (pl.Lado(pl.AGUA, mw_c, arr("calentamiento", "caliente")), (Tw_c + Tw_c_sale) / 2,
+                          pl.Lado(yema, m, arr("calentamiento", "fria")), (T["T2"] + T["T3"]) / 2),
+        "enfriamiento": (pl.Lado(yema, m, arr("enfriamiento", "caliente")), (T["T5"] + T["T6"]) / 2,
+                         pl.Lado(pl.AGUA, mw_f, arr("enfriamiento", "fria")), (Tw_f + Tw_f_sale) / 2),
+    }
+    res = []
+    for sec, (cal, Tc, fri, Tf) in casos.items():
+        det = pl.coeficiente_U(placa, cal, fri, Tc, Tf, ch["ensuciamiento_m2K_W"][sec], "sharifi")
+        res.append(ChequeoU(sec, ch["U_publicado_W_m2K"][sec], det.U, det.caliente.h, det.fria.h))
+    return res
+
+
+def tabla_chequeo_U(filas: list[ChequeoU]) -> str:
+    lineas = [f"{'Sección':<15}{'U Gut':>8}{'U calculado':>13}{'Gut/calc.':>11}{'h cal.':>9}{'h fría':>9}",
+              f"{'':<15}{'(W/m²K)':>8}{'(W/m²K)':>13}{'':>11}{'(W/m²K)':>9}{'(W/m²K)':>9}"]
+    for f in filas:
+        lineas.append(f"{f.seccion:<15}{f.U_publicado:>8.0f}{f.U_calculado:>13.0f}"
+                      f"{f.relacion:>11.1f}{f.h_caliente:>9.0f}{f.h_fria:>9.0f}")
+    return "\n".join(lineas)

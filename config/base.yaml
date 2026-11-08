@@ -1,5 +1,5 @@
 # =============================================================================
-# Configuración base del pasteurizador (v0.5, cierre de v0)
+# Configuración base del pasteurizador (v1.0: U por correlación de placa)
 #
 # Unidades prácticas acá (kg/h, °C, min, bar). El código pasa todo a SI al
 # cargar, salvo las temperaturas, que quedan en °C porque así están escritas
@@ -55,6 +55,7 @@ productos:
       cenizas: 0.0155
     termicas: choi_okos                 # alternativa: gut2003_yema (medidas; cp ~17 % menor)
     reologia: gut2003_yema              # tablas 4 y 5 de [gut2003yolk]
+    reologia_gamma_1_s: [70.2, 512.4]   # rango de corte de esas tablas: aviso si las placas se salen
     cinetica: {D_ref_min: 1.68, T_ref_C: 61.1, z_C: 7.31}   # derivado de [fsis2026guideline], Ap. III
     horas_anio: 168
 
@@ -94,20 +95,46 @@ productos:
     horas_anio: 216
 
 equipo:
-  placa:                                # placa chevron "típica", dentro de rangos de libro
-    area_m2: 0.15                       # [shah2003fundamentals], [kakac2012heat]
-    ancho_m: 0.20                       # sin uso en v0
-    separacion_b_m: 0.003               # sin uso en v0
-    angulo_chevron_grados: 45           # sin uso en v0
-    factor_area: 1.17                   # sin uso en v0
-    espesor_m: 0.0005                   # sin uso en v0
-    k_W_mK: 16.3                        # AISI 316L; sin uso en v0
+  placa:                                # placa chevron "típica", dentro de rangos de libro: no es de catálogo
+    area_m2: 0.15                       # área de transferencia por placa [shah2003fundamentals], [kakac2012heat]
+    ancho_m: 0.20                       # ancho del canal
+    separacion_b_m: 0.003               # profundidad del corrugado (b)
+    angulo_chevron_grados: 45           # a 45° coinciden las dos convenciones de ángulo de la literatura
+    factor_area: 1.17                   # área desarrollada / proyectada (φ)
+    espesor_m: 0.0005
+    k_W_mK: 16.3                        # AISI 316L
+    diam_puerto_m: 0.05                 # supuesto (DN50); el Δp de puertos casi no pesa
 
-  # v0: U fijo por sección, tomado del caso de yema de [gut2003yolk], Tabla 7
-  # (contracorriente pura). En v1 se reemplaza por correlaciones de h.
-  U_fijo_W_m2K:
+  # Cómo se calcula U:
+  #   correlacion (v1): 1/U = 1/h_caliente + 1/h_fría + e/k + ensuciamiento, cada h por correlación
+  #   fijo (v0): los valores de U_fijo_W_m2K. Para volver a v0.5 alcanza con  modelo_U: fijo
+  modelo_U: correlacion
+  correlacion: kumar                    # [kumar1984phe] vía [kakac2012heat]; constantes por ángulo y Re
+  correlacion_contraste: martin         # [martin1996chevron]: solo se informa, no diseña
+  U_fijo_W_m2K:                         # v0: caso de yema de [gut2003yolk], Tabla 7 (contracorriente pura)
     regeneracion: 756
     calentamiento: 864
+
+  # Ensuciamiento por lado [m²·K/W]. Producto: los de leche de [lalande1979fouling] que usan
+  # [gut2003yolk] para la yema; agua caliente: [marriott1971phe], también vía [gut2003yolk].
+  # Es la decisión que más mueve el área: sin ensuciamiento el equipo pasa de 62 a 34 placas.
+  ensuciamiento_m2K_W:
+    producto_regeneracion: 3.0e-4       # cada lado: en la regeneración hay producto de los dos lados
+    producto_calentamiento: 9.0e-4
+    agua_caliente: 3.4e-5
+
+  # Arreglo de cada sección: pasos en serie × canales por paso, igual de los dos lados
+  # (pasos en contracorriente: se trata como contracorriente pura, como en v0).
+  # El modelo prueba cada número de pasos y se queda con el de menos placas que cumple el Δp.
+  arreglo:
+    pasos_candidatos: [1, 2, 3, 4, 5, 6, 8]
+    dp_max_seccion_bar: 1.0             # por sección y por corriente (supuesto, mismo criterio que el tubo)
+
+  cip:
+    # [galinski2025cip]: en su PHE el caudal mínimo efectivo fue 1200 L/h, que según su ec. 6
+    # (Re = V·De·ρ/(N·b·w·η), De = 2b) es Re ≈ 2150. Se traslada el Re, no los L/h.
+    Re_min_placas: 2150
+    T_C: 70                             # solución alcalina caliente (supuesto)
 
   holding:
     DN_diam_int_m: {25: 0.026, 32: 0.032, 40: 0.038, 50: 0.050, 65: 0.066}   # [din11850], serie 2

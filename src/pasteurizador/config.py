@@ -16,6 +16,7 @@ from . import propiedades as pr
 from .aislacion import Aislacion
 from .cinetica import Cinetica
 from .holding import Criterios, Geometria
+from .placas import CORRELACIONES, Placa
 
 
 @dataclass
@@ -36,6 +37,8 @@ class Producto:
     horas_anio: float
     pH: float | None = None        # informativo, sale en el reporte
     T_espesa: float | None = None  # °C donde empieza a subir la viscosidad (aviso)
+    # Rango de tasa de corte donde se midió la reología (aviso si en las placas se sale)
+    gamma_rango: tuple[float, float] | None = None
 
     # Métodos: funciones que viven dentro de la ficha. p.termicas(60) da ρ, cp, k
     # del producto p a 60 °C sin tener que pasarle su composición cada vez.
@@ -66,6 +69,22 @@ class Config:
     DT_agua: float                # °C, salto del agua caliente en el diseño
     criterios: Criterios
     logs_objetivo: float
+    # --- placas (v1) ---
+    placa: Placa | None = None
+    modelo_U: str = "fijo"        # fijo (v0) | correlacion (v1)
+    correlacion: str = "kumar"
+    correlacion_contraste: str | None = None
+    Rf_regen: float = 0.0         # m²·K/W, producto, cada lado de la regeneración
+    Rf_calent: float = 0.0        # m²·K/W, producto en el calentamiento
+    Rf_agua: float = 0.0          # m²·K/W, agua caliente
+    pasos_candidatos: tuple[int, ...] = (1,)
+    dp_max_placas: float = 1e5    # Pa, por sección y por corriente
+    Re_CIP_placas: float | None = None
+    T_CIP: float = 70.0           # °C
+
+    @property
+    def con_correlacion(self) -> bool:
+        return self.modelo_U == "correlacion"
 
     def T_operacion(self, p: Producto) -> float:
         """°C a la salida del tubo en operación: la T legal más el margen del control."""
@@ -96,6 +115,20 @@ def _producto(clave: str, d: dict) -> Producto:
         horas_anio=float(d["horas_anio"]),
         pH=d.get("pH"),
         T_espesa=d.get("T_espesa_C"),
+        gamma_rango=tuple(d["reologia_gamma_1_s"]) if "reologia_gamma_1_s" in d else None,
+    )
+
+
+def _placa(d: dict) -> Placa:
+    return Placa(
+        area=d["area_m2"],
+        ancho=d["ancho_m"],
+        b=d["separacion_b_m"],
+        angulo=d["angulo_chevron_grados"],
+        phi=d["factor_area"],
+        espesor=d["espesor_m"],
+        k=d["k_W_mK"],
+        D_puerto=d.get("diam_puerto_m", 0.05),
     )
 
 
@@ -122,6 +155,15 @@ def cargar(ruta: str | Path) -> Config:
         )
     eq, hold, crit = c["equipo"], c["equipo"]["holding"], c["criterios"]
     geo = hold.get("geometria", {})
+    modelo_U = eq.get("modelo_U", "fijo")
+    if modelo_U not in ("fijo", "correlacion"):
+        raise ConfigInvalida(f"equipo.modelo_U = {modelo_U}: tiene que ser 'fijo' o 'correlacion'")
+    for clave in ("correlacion", "correlacion_contraste"):
+        if eq.get(clave) not in CORRELACIONES | {None}:
+            raise ConfigInvalida(f"equipo.{clave} = {eq.get(clave)}: opciones {sorted(CORRELACIONES)}")
+    ens = eq.get("ensuciamiento_m2K_W", {})
+    arr = eq.get("arreglo", {})
+    cip = eq.get("cip", {})
     if "aislacion" not in hold and "perdida_T_C" not in hold:
         raise ConfigInvalida("equipo.holding necesita 'aislacion' (se calcula la pérdida) "
                              "o 'perdida_T_C' (valor fijo)")
@@ -152,4 +194,15 @@ def cargar(ruta: str | Path) -> Config:
             factor_turbulento_vmax=crit["factor_turbulento_vmax"],
         ),
         logs_objetivo=crit["logs_objetivo"],
+        placa=_placa(eq["placa"]),
+        modelo_U=modelo_U,
+        correlacion=eq.get("correlacion", "kumar"),
+        correlacion_contraste=eq.get("correlacion_contraste"),
+        Rf_regen=ens.get("producto_regeneracion", 0.0),
+        Rf_calent=ens.get("producto_calentamiento", 0.0),
+        Rf_agua=ens.get("agua_caliente", 0.0),
+        pasos_candidatos=tuple(arr.get("pasos_candidatos", [1])),
+        dp_max_placas=arr.get("dp_max_seccion_bar", 1.0) * 1e5,
+        Re_CIP_placas=cip.get("Re_min_placas"),
+        T_CIP=cip.get("T_C", 70.0),
     )

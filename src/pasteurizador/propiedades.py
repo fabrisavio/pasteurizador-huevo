@@ -251,3 +251,18 @@ def agua(T: float) -> Termicas:
     if not 0.0 < T < 130.0:
         raise ValueError(f"Agua fuera de rango líquido razonable: {T:.1f} °C")
     return _agua_cache(round(T, 2))
+
+
+@lru_cache(maxsize=4096)
+def _mu_agua_cache(T_redondeada: float) -> float:
+    return IAPWS97(T=T_redondeada + 273.15, P=P_AGUA_MPA).mu
+
+
+def agua_reologia(T: float) -> Reologia:
+    """El agua como 'ley de potencia' newtoniana: K = μ (IAPWS), n = 1.
+
+    Así el mismo código de canal sirve para el agua y para los productos.
+    """
+    if not 0.0 < T < 130.0:
+        raise ValueError(f"Agua fuera de rango líquido razonable: {T:.1f} °C")
+    return Reologia(K=_mu_agua_cache(round(T, 2)), n=1.0)

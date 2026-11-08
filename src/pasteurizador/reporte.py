@@ -12,6 +12,7 @@ from datetime import date
 from pathlib import Path
 
 from . import __version__
+from . import placas as pl
 from .pasteurizador import Resultado
 
 
@@ -73,6 +74,74 @@ def aislacion_md(r: Resultado) -> str:
     return "\n".join(s)
 
 
+def placas_md(r: Resultado) -> str:
+    """v1: arreglos evaluados, h y Δp de cada lado, contraste y CIP."""
+    cfg, eq = r.cfg, r.equipo
+    claves = list(cfg.productos)
+    pl_ = cfg.placa
+    s = ["## Placas: arreglo, coeficientes y Δp\n",
+         f"Placa chevron de {pl_.angulo:.0f}°, b = {pl_.b*1000:.1f} mm, ancho {pl_.ancho:.2f} m, "
+         f"φ = {pl_.phi}, Dh = {pl_.Dh*1000:.2f} mm, largo efectivo {pl_.L:.2f} m. "
+         f"h por {cfg.correlacion.capitalize()}; Δp máximo {cfg.dp_max_placas/1e5:.1f} bar por "
+         "sección y corriente. Ensuciamiento: producto "
+         f"{cfg.Rf_regen:.1e} m²K/W por lado en regeneración y {cfg.Rf_calent:.1e} en "
+         f"calentamiento; agua {cfg.Rf_agua:.1e}.\n"]
+    for nombre, ops, elegido in (("Regeneración", eq.opciones_regen, eq.arreglo_regen),
+                                 ("Calentamiento", eq.opciones_calent, eq.arreglo_calent)):
+        s.append(f"\n**{nombre}: arreglos evaluados.**\n")
+        corrientes = list(ops[0].dp)
+        filas = []
+        for o in ops:
+            marca = " ←" if o.arreglo == elegido else ""
+            filas.append([f"{o.arreglo}{marca}", o.placas, o.gobierna]
+                         + [f"{o.dp[c]/1e5:.2f}" for c in corrientes]
+                         + ["sí" if o.factible else "no"])
+        s.append(_tabla(["Pasos × canales", "Placas", "Gobierna"]
+                        + [f"Δp {c} (bar)" for c in corrientes] + ["Cumple Δp"], filas))
+
+    s.append("\n**Cada lado, con el equipo elegido** (T de entrada de diseño):\n")
+    filas = []
+    for k in claves:
+        v = r.en_diseno(k)
+        for sec, det in (("regeneración", v.det_regen), ("calentamiento", v.det_calent)):
+            if det is None:
+                continue
+            for lado, c in (("caliente", det.caliente), ("fría", det.fria)):
+                filas.append([k, sec, f"{lado} ({c.fluido})", c.v, c.Re, c.Pr, c.h, c.dp / 1e5,
+                              round(c.gamma_pared)])
+    s.append(_tabla(["Producto", "Sección", "Lado", "v (m/s)", "Re", "Pr", "h (W/m²K)",
+                     "Δp (bar)", "γ̇ pared (1/s)"], filas))
+
+    s.append("\n**De dónde sale cada U**: qué fracción de la resistencia pone cada parte.\n")
+    filas = []
+    for k in claves:
+        v = r.en_diseno(k)
+        for sec, det in (("regeneración", v.det_regen), ("calentamiento", v.det_calent)):
+            if det is None:
+                continue
+            f = det.fraccion_resistencias
+            contraste = v.U_contraste.get(sec)
+            filas.append([k, sec, round(det.U), round(det.U_limpio),
+                          f"{f['película caliente']:.0%}", f"{f['película fría']:.0%}",
+                          f"{f['ensuciamiento']:.0%}", f"{f['pared']:.0%}",
+                          round(contraste) if contraste else "—"])
+    corr = (cfg.correlacion_contraste or "").capitalize() or "—"
+    s.append(_tabla(["Producto", "Sección", "U (W/m²K)", "U limpio (W/m²K)", "Película caliente",
+                     "Película fría", "Ensuciamiento", "Pared", f"U con {corr}"], filas))
+    if cfg.correlacion_contraste:
+        lo, hi = pl.RANGO_RE[cfg.correlacion_contraste]
+        s.append(f"\n{corr} está ajustada para Re entre {lo:g} y {hi:g}: con los productos "
+                 "(Re bajos) el contraste es orientativo.\n")
+
+    if eq.Q_CIP_placas:
+        s.append(f"\n**CIP.** Para Re ≥ {cfg.Re_CIP_placas:.0f} en los canales de producto "
+                 f"(Galiński et al., 2025), con solución a {cfg.T_CIP:.0f} °C: "
+                 + ", ".join(f"{k} {q:.1f} m³/h" for k, q in eq.Q_CIP_placas.items())
+                 + f". El tubo pide {eq.tubo.elegido.Q_CIP_m3_h:.1f} m³/h (a {cfg.v_CIP} m/s); "
+                 "el circuito de producto está en serie, así que la bomba tiene que dar el mayor.\n")
+    return "\n".join(s)
+
+
 def markdown(r: Resultado, origen: str = "") -> str:
     cfg, eq = r.cfg, r.equipo
     claves = list(cfg.productos)
@@ -83,19 +152,34 @@ def markdown(r: Resultado, origen: str = "") -> str:
     # Equipo
     s.append("## Equipo\n")
     filas = []
-    for nombre, n, A, U, gob, attr in [
-        ("Regeneración", eq.placas_regen, eq.A_regen, cfg.U_regen, eq.gobierna_regen, "regen"),
-        ("Calentamiento", eq.placas_calent, eq.A_calent, cfg.U_calent, eq.gobierna_calent, "calent"),
+    for nombre, n, A, U, gob, attr, arr in [
+        ("Regeneración", eq.placas_regen, eq.A_regen, cfg.U_regen, eq.gobierna_regen, "regen",
+         eq.arreglo_regen),
+        ("Calentamiento", eq.placas_calent, eq.A_calent, cfg.U_calent, eq.gobierna_calent, "calent",
+         eq.arreglo_calent),
     ]:
         pedidas = []
         for k in claves:
             sec = getattr(eq.disenos[k], attr)  # getattr(obj, "regen") = obj.regen
             pedidas.append(f"{k} {sec.A:.2f}" if sec else f"{k} —")
-        filas.append([nombre, n, A, U, gob, " · ".join(pedidas)])
-    s.append(_tabla(["Sección", "Placas térmicas", "Área instalada (m²)", "U (W/m²K)",
-                     "Gobierna", "Área que pide cada producto (m²)"], filas))
+        if cfg.con_correlacion:
+            # U de cada producto operando en el equipo, a su T de entrada de diseño
+            U = " · ".join(f"{k} {getattr(r.en_diseno(k), attr).U:.0f}" for k in claves
+                           if getattr(r.en_diseno(k), attr) is not None)
+            filas.append([nombre, str(arr), n, A, U, gob, " · ".join(pedidas)])
+        else:
+            filas.append([nombre, n, A, U, gob, " · ".join(pedidas)])
+    if cfg.con_correlacion:
+        s.append(_tabla(["Sección", "Pasos × canales", "Placas térmicas", "Área instalada (m²)",
+                         "U en operación (W/m²K)", "Gobierna", "Área que pide cada producto (m²)"],
+                        filas))
+    else:
+        s.append(_tabla(["Sección", "Placas térmicas", "Área instalada (m²)", "U (W/m²K)",
+                         "Gobierna", "Área que pide cada producto (m²)"], filas))
     s.append(f"\nPlaca de {cfg.area_placa} m². Bomba de agua caliente: "
              f"{eq.m_agua:.2f} kg/s ({eq.m_agua*3.6:.1f} m³/h aprox.).\n")
+    if cfg.con_correlacion:
+        s.append(placas_md(r))
 
     # Tubo
     margen = 1 - t.dp_max / cfg.dp_max_holding

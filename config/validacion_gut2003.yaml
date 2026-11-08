@@ -47,3 +47,22 @@ esperado_C:
   T6: 4.45                             # yema a la salida del enfriamiento (a almacenamiento)
 
 tolerancia_C: 0.5
+
+# -----------------------------------------------------------------------------
+# Chequeo del U (v1): ¿sale el U de la Tabla 7 con la correlación y los datos
+# que publica el paper? Placas planas, Nu = 1,35·Re^0,36·Pr^0,33 (Sharifi et
+# al., 1995) con la viscosidad generalizada de placas paralelas (υ = 2, ξ = 12),
+# y los ensuciamientos que declaran. T medias: columna "constant-U model".
+# -----------------------------------------------------------------------------
+chequeo_U:
+  placa: {b_m: 0.005, espesor_m: 0.0005, k_W_mK: 16.3}
+  T_constant_U_C: {T2: 48.01, T3: 61.08, T4: 60.08, T5: 17.54, T6: 4.60}
+  U_publicado_W_m2K: {regeneracion: 756, calentamiento: 864, enfriamiento: 1196}
+  arreglos:                            # pasos × canales por paso (Fig. 2)
+    regeneracion: {caliente: [1, 16], fria: [1, 16]}
+    calentamiento: {caliente: [2, 3], fria: [1, 7]}       # agua 3×2, yema 7×1
+    enfriamiento: {caliente: [2, 3], fria: [1, 7]}        # yema 3×2, agua 7×1
+  ensuciamiento_m2K_W:                 # suma de los dos lados
+    regeneracion: 6.0e-4               # yema 3e-4 de cada lado
+    calentamiento: 9.34e-4             # yema 9e-4 + agua caliente 3,4e-5
+    enfriamiento: 3.17e-4              # yema 3e-4 + agua fría 1,7e-5

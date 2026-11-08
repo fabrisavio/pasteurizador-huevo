@@ -218,6 +218,9 @@
 % [PRIMARIA] Archivo: "CIP en placas.pdf".
 % Usado: caudal mínimo efectivo de CIP en SU instalación (1200 L/h, que equivale a Re ~ 2150);
 % fin de la transición en Re 1200-1500. Lo que se traslada a otro PHE es el Re, no los L/h.
+% v1 (08/11): Re de CIP por su ec. 6, Re = V·De·ρ/(N·b·Wp·η), De = 2b; 1200 L/h → Re ≈ 2150
+% (interpolando entre 743 L/h = 1332 y 1330 L/h = 2386). Δp de placas por su ec. 2: canales
+% 2f·L·P·Gc²/(ρ·De) con f de Fanning, más puertos 1,4·P·Gp²/(2ρ).
 @article{galinski2025cip,
   author       = {Galiński, M. and Bieńczak, A. and Ignasiak, Ł. and Kiczek, T. and Michalak, T. and Woźniak, P. and Maziarz, K.},
   title        = {The influence of flow rate on {CIP} cleaning efficiency and flow resistance in an installation with a three-section {PHE}},
@@ -451,8 +454,9 @@
 % 5. A CONSULTAR (necesarias para el modelo; citadas en Gut et al., 2003)
 % ---------------------------------------------------------------------
 
-% [A CONSULTAR] Re generalizado de fluidos power-law en conductos de sección arbitraria
-% (canal de un PHE). Hace falta para la yema en las placas.
+% [SECUNDARIA vía gut2003yolk, ecs. 11a-11b] Viscosidad generalizada de fluidos ley de potencia:
+% μg = K·ξ^(n-1)·(v/De)^(n-1)·((υn+1)/((υ+1)n))^n; placas paralelas υ = 2, ξ = 12. Usada en v1
+% para yema y huevo entero en el canal chevron (aproximación declarada).
 @article{delplace1995generalized,
   author       = {Delplace, F. and Leuliet, J. C.},
   title        = {Generalized {Reynolds} number for the flow of power law fluids in cylindrical ducts of arbitrary cross-section},
@@ -499,8 +503,11 @@
 
 % ===================== Agregadas 31/10: geometría de placa, reología en cañería, holding y CIP =====================
 
-% [A CONSULTAR] Correlación base Nu y f para placas chevron según ángulo y Re (tabla reproducida en Kakaç et al.).
-% Si no se accede al original, citar como secundaria vía kakac2012heat.
+% [SECUNDARIA vía kakac2012heat y ayub2003plate] Correlación de diseño de v1:
+% Nu = C·Re^y·Pr^(1/3)·(μ/μw)^0,17 y f (Fanning) = Kp/Re^z, constantes por ángulo (30-65°) y tramo de Re.
+% A 45°: Nu 0,718/0,349 (Re ≤ 10), 0,400/0,598 (10-100), 0,300/0,663 (> 100); f 47/1 (Re ≤ 15),
+% 18,29/0,652 (15-300), 1,441/0,206 (> 300). Constantes cotejadas con las bibliotecas ht y fluids
+% (bell2024ht, bell2024fluids), que citan a Kumar (1984) y Ayub (2003). El original no se leyó.
 @inproceedings{kumar1984phe,
   author       = {Kumar, H.},
   title        = {The plate heat exchanger: construction and design},
@@ -512,7 +519,9 @@
   date         = {1984},
 }
 
-% [A CONSULTAR] Correlación semiteórica para placas chevron (contraste de Kumar). Base del capítulo de PHE del VDI Heat Atlas.
+% [SECUNDARIA vía vdi2010heat y bell2024fluids] Contraste de v1: Nu = 0,122·Pr^(1/3)·(μ/μw)^(1/6)·
+% (ξ·Re²·sen 2φ)^0,374 con ξ de Darcy (constantes 0,18; 0,36; 3,8; laminar ξ0 = 64/Re, ξ1 = 597/Re + 3,85).
+% Ajustada para Re 200-10 000: con los productos queda fuera de rango (contraste orientativo).
 @article{martin1996chevron,
   author       = {Martin, H.},
   title        = {A theoretical approach to predict the performance of chevron-type plate heat exchangers},
@@ -533,6 +542,8 @@
 }
 
 % [A CONSULTAR] Capítulo de intercambiadores de placas: geometría típica y tabla de constantes de Kumar.
+% 08/11: un ejemplo resuelto que lo cita (DWSIM/FOSSEE) usa Re y Nu con Dh = 2b/φ y Nu = 0,3·Re^0,663 a 45°;
+% coincide con lo implementado. Leer el capítulo antes de citarlo como primaria.
 @book{kakac2012heat,
   author       = {Kaka{\c{c}}, S. and Liu, H. and Pramuanjaroenkij, A.},
   title        = {Heat Exchangers: Selection, Rating, and Thermal Design},
@@ -704,4 +715,47 @@
   pages        = {67--72},
   date         = {2020},
   doi          = {10.2478/pjct-2020-0018},
+}
+
+
+% ===================== Agregadas 08/11 (v1: placas) =====================
+
+% [A CONSULTAR] Revisión de correlaciones de PHE; publica el ajuste de las curvas de fricción de Kumar.
+@article{ayub2003plate,
+  author       = {Ayub, Z. H.},
+  title        = {Plate heat exchanger literature survey and new heat transfer and pressure drop correlations for refrigerant evaporators},
+  journaltitle = {Heat Transfer Engineering},
+  volume       = {24},
+  number       = {5},
+  pages        = {3--16},
+  date         = {2003},
+  doi          = {10.1080/01457630304056},
+}
+
+% [A CONSULTAR] Capítulo de Martin sobre PHE (constantes de la versión usada como contraste).
+@book{vdi2010heat,
+  author       = {{VDI e. V.}},
+  title        = {{VDI} Heat Atlas},
+  edition      = {2},
+  publisher    = {Springer},
+  location     = {Berlin},
+  date         = {2010},
+}
+
+% [CONSULTADA 08/11, código fuente] Implementación de Nu de Kumar y Martin; usada solo para cotejar constantes.
+@software{bell2024ht,
+  author       = {Bell, Caleb},
+  title        = {ht: Heat transfer component of the Chemical Engineering Design Library},
+  version      = {1.2.0},
+  url          = {https://github.com/CalebBell/ht},
+  urldate      = {2026-11-08},
+}
+
+% [CONSULTADA 08/11, código fuente] Fricción de Kumar (Fanning × 4) y de Martin (VDI); cotejo de constantes.
+@software{bell2024fluids,
+  author       = {Bell, Caleb},
+  title        = {fluids: Fluid dynamics component of the Chemical Engineering Design Library},
+  version      = {1.3.1},
+  url          = {https://github.com/CalebBell/fluids},
+  urldate      = {2026-11-08},
 }

@@ -11,7 +11,7 @@ from pathlib import Path
 
 from pasteurizador import __version__, config, reporte
 from pasteurizador.pasteurizador import correr
-from pasteurizador.validacion import validar
+from pasteurizador.validacion import chequear_U_gut, tabla_chequeo_U, validar
 
 RAIZ = Path(__file__).parent  # la carpeta donde está este archivo
 
@@ -44,6 +44,10 @@ def main() -> int:
         print("  [regeneración, lado frío] ─T2─► [calentamiento] ─T3─► tubo ─T4─┐")
         print("  T6 ◄─ [enfriamiento] ◄─T5─ [regeneración, lado caliente] ◄─────┘\n")
         print(res.tabla())
+        print("\nChequeo del U (v1): con la correlación y los datos que publica el paper")
+        print("(placas planas, Sharifi et al. 1995; ensuciamientos de Gut; T del modelo de U constante)\n")
+        print(tabla_chequeo_U(chequear_U_gut(RAIZ / "config" / "validacion_gut2003.yaml")))
+        print("\nEl U de la Tabla 7 no sale de los datos publicados: por eso v1 no lo usa.")
         return 0 if res.ok else 1
 
     ruta_cfg = Path(args.config)
@@ -61,8 +65,16 @@ def main() -> int:
 
     print(f"Pasteurizador v{__version__} · config {ruta_cfg.name}\n")
     print("EQUIPO")
-    print(f"  Regeneración:  {eq.placas_regen} placas ({eq.A_regen:.2f} m²), gobierna {eq.gobierna_regen}")
-    print(f"  Calentamiento: {eq.placas_calent} placas ({eq.A_calent:.2f} m²), gobierna {eq.gobierna_calent}")
+    for nombre, n, A, gob, arr, attr in (
+            ("Regeneración: ", eq.placas_regen, eq.A_regen, eq.gobierna_regen, eq.arreglo_regen, "regen"),
+            ("Calentamiento:", eq.placas_calent, eq.A_calent, eq.gobierna_calent, eq.arreglo_calent, "calent")):
+        linea = f"  {nombre} {n} placas ({A:.2f} m²), gobierna {gob}"
+        if arr is not None:
+            # U de cada producto en el equipo, a su T de entrada de diseño
+            Us = [getattr(r.en_diseno(k), attr).U for k in r.verificaciones
+                  if getattr(r.en_diseno(k), attr) is not None]
+            linea += f"; {arr.pasos} pasos × {arr.canales} canales, U {min(Us):.0f}–{max(Us):.0f} W/m²K"
+        print(linea)
     print(f"  Agua caliente: {eq.m_agua*3.6:.1f} m³/h")
     print(f"  Tubo:          {reporte.describir_tubo(r)}")
     print(f"                 {t.volumen_L:.0f} L, Δp {t.dp_max/1e5:.2f} bar "
@@ -84,6 +96,7 @@ def main() -> int:
     else:
         print(f"  Pérdida en el tubo: {cfg.perdida_fija} °C (fija)")
     print(f"  Control:       {cfg.margen_control:.1f} °C sobre la T legal")
+    print(f"  U:             {'por correlación de ' + cfg.correlacion.capitalize() if cfg.con_correlacion else 'fijo (v0)'}")
 
     # Tabla de ancho fijo: {x:>7} alinea a la derecha en 7 caracteres
     print("\nPRODUCTO (a su T de entrada de diseño; temperaturas en °C)")

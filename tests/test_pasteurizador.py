@@ -133,3 +133,66 @@ def test_aviso_de_espesamiento_solo_donde_corresponde(resultado):
     espesa = [a for a in resultado.avisos if "empieza a espesar" in a]
     claves = {a.split(":")[0] for a in espesa}
     assert claves == {"HP", "CP"}   # la yema recién espesa a 65 °C
+
+
+# --- v1: U por correlación ----------------------------------------------------
+def _correr_con(tmp_path, cambio):
+    import yaml
+    with open(RAIZ / "config" / "base.yaml", encoding="utf-8") as f:
+        c = yaml.safe_load(f)
+    cambio(c)
+    ruta = tmp_path / "caso.yaml"
+    ruta.write_text(yaml.safe_dump(c, allow_unicode=True), encoding="utf-8")
+    return correr(config.cargar(ruta))
+
+
+def test_base_usa_U_por_correlacion(resultado):
+    assert resultado.cfg.con_correlacion
+    assert resultado.equipo.arreglo_regen is not None
+    assert resultado.equipo.placas_regen == resultado.equipo.arreglo_regen.placas
+
+
+def test_modo_fijo_reproduce_v05(tmp_path):
+    def fijo(c):
+        c["equipo"]["modelo_U"] = "fijo"
+    r = _correr_con(tmp_path, fijo)
+    assert (r.equipo.placas_regen, r.equipo.placas_calent) == (10, 24)
+    assert r.equipo.arreglo_regen is None
+
+
+def test_ningun_lado_pasa_el_dp_maximo(resultado):
+    dp_max = resultado.cfg.dp_max_placas
+    for vs in resultado.verificaciones.values():
+        for v in vs:
+            for det in (v.det_regen, v.det_calent):
+                assert det.caliente.dp <= dp_max * (1 + 1e-6)
+                assert det.fria.dp <= dp_max * (1 + 1e-6)
+
+
+def test_el_arreglo_elegido_es_el_de_menos_placas_que_cumple(resultado):
+    eq = resultado.equipo
+    for ops, elegido in ((eq.opciones_regen, eq.arreglo_regen), (eq.opciones_calent, eq.arreglo_calent)):
+        factibles = [o for o in ops if o.factible]
+        assert min(o.placas for o in factibles) == elegido.placas
+
+
+def test_cada_producto_tiene_su_U(resultado):
+    # la yema, más viscosa, transfiere peor que el huevo entero y la clara
+    U = {k: resultado.en_diseno(k).calent.U for k in resultado.cfg.productos}
+    assert U["YP"] < U["CP"] < U["HP"]
+
+
+def test_sin_ensuciamiento_hacen_falta_menos_placas(tmp_path, resultado):
+    def limpio(c):
+        c["equipo"]["ensuciamiento_m2K_W"] = {"producto_regeneracion": 0.0,
+                                              "producto_calentamiento": 0.0, "agua_caliente": 0.0}
+    r = _correr_con(tmp_path, limpio)
+    assert r.equipo.placas_calent < resultado.equipo.placas_calent
+    assert r.equipo.placas_regen < resultado.equipo.placas_regen
+
+
+def test_U_de_gut_no_sale_de_sus_datos():
+    from pasteurizador.validacion import chequear_U_gut
+    filas = chequear_U_gut(RAIZ / "config" / "validacion_gut2003.yaml")
+    assert {f.seccion for f in filas} == {"regeneracion", "calentamiento", "enfriamiento"}
+    assert all(f.relacion > 2 for f in filas)
