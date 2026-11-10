@@ -8,9 +8,10 @@ import math
 import pytest
 
 from pasteurizador.cinetica import Cinetica
-from pasteurizador.holding import (Criterios, Geometria, ProductoTubo, Re_critico_espiral,
-                                   correccion_white_laminar, elegir_tubo, evaluar_DN,
-                                   flujo_en_tubo, viscosidad_metzner_reed)
+from pasteurizador.holding import (Criterios, Geometria, K_curva, ProductoTubo, Re_critico_espiral,
+                                   correccion_white_laminar, disponer_horquillas, elegir_tubo,
+                                   evaluar_DN, flujo_en_tubo, pendiente_espiral,
+                                   viscosidad_metzner_reed)
 
 CIN = Cinetica(1.0, 60.0, 5.0)
 CRIT = Criterios()
@@ -134,3 +135,68 @@ def test_espiral_informa_el_equivalente_recto():
 def test_espiral_sin_diametro_es_error():
     with pytest.raises(ValueError):
         Geometria(tipo="espiral")
+
+
+# --- horquillas ---------------------------------------------------------------
+HORQ = Geometria(tipo="horquillas", largo_tramo=6.0, radio_curva=0.06, luz=0.02,
+                 extra_envolvente=0.10, pendiente=0.02)
+
+
+def test_horquillas_reparten_el_largo_entre_tramos_y_curvas():
+    h = disponer_horquillas(114.0, 0.041, HORQ)
+    assert h.largo_tramo <= 6.0 + 1e-12
+    assert h.curvas == h.tramos - 1
+    assert h.tramos * h.largo_tramo + h.curvas * h.largo_curva == pytest.approx(114.0)
+    # con el N anterior no alcanzaría: es el mínimo de tramos
+    assert (h.tramos - 1) * 6.0 + (h.tramos - 2) * h.largo_curva < 114.0
+
+
+def test_horquillas_separan_los_planos_para_que_entre_la_coquilla():
+    h = disponer_horquillas(114.0, 0.041, HORQ)
+    assert h.entre_planos == pytest.approx(0.041 + 0.10 + 0.02)
+    assert h.niple == pytest.approx(h.entre_planos - 2 * 0.06)
+    assert h.largo_curva == pytest.approx(math.pi * 0.06 + h.niple)
+
+
+def test_desnivel_es_la_pendiente_por_el_largo():
+    h = disponer_horquillas(114.0, 0.041, HORQ)
+    assert h.pendiente == pytest.approx(0.02)
+    assert h.desnivel == pytest.approx(0.02 * 114.0)
+
+
+def test_tramos_cortos_obligan_a_subir_mas_empinado():
+    geo = Geometria(tipo="horquillas", largo_tramo=2.0, radio_curva=0.06, luz=0.02,
+                    extra_envolvente=0.10, pendiente=0.02)
+    h = disponer_horquillas(114.0, 0.041, geo)
+    # dos tramos del mismo plano tienen que quedar separados un tubo aislado más la luz
+    assert 2 * h.pendiente * (h.largo_tramo + h.largo_curva) == pytest.approx(0.041 + 0.10 + 0.02)
+    assert h.pendiente > 0.02
+
+
+def test_K_de_curva_de_hooper():
+    D = 0.0254  # 1 pulgada: 1 + 1/D = 2
+    assert K_curva(1e12, D, HORQ) == pytest.approx(0.30 * 2)
+    assert K_curva(1000.0, D, HORQ) == pytest.approx(1.0 + 0.6)
+
+
+def test_las_curvas_suman_dp_y_no_cambian_el_largo():
+    p = producto(n=0.85, K=0.1)
+    recto = evaluar_DN(40, 0.038, [p], CRIT, 1.5, Geometria(), 0.041)
+    horq = evaluar_DN(40, 0.038, [p], CRIT, 1.5, HORQ, 0.041)
+    assert horq.L == pytest.approx(recto.L)            # misma partícula rápida que el recto
+    x = horq.productos["X"]
+    assert x.dp_curvas > 0
+    assert x.dp == pytest.approx(recto.productos["X"].dp + x.dp_curvas)
+
+
+def test_pendiente_de_la_espiral():
+    geo = Geometria(tipo="espiral", D_espiral=1.0, separacion=0.01)
+    assert pendiente_espiral(0.041, geo) == pytest.approx(0.051 / math.pi)
+
+
+def test_DN_fijo_usa_ese_DN_y_avisa():
+    p = producto(n=0.85, K=0.1)
+    DNs = {40: 0.038, 50: 0.050}
+    t = elegir_tubo([p], DNs, CRIT, 1e5, 1.5, DN_fijo=50)
+    assert t.elegido.DN == 50
+    assert any("DN50 fijado" in a for a in t.avisos)

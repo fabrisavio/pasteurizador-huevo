@@ -12,6 +12,8 @@ from datetime import date
 from pathlib import Path
 
 from . import __version__
+from . import aislacion as ai
+from . import dimensiones as dm
 from . import placas as pl
 from .pasteurizador import Resultado
 
@@ -31,6 +33,11 @@ def _tabla(encabezado: list[str], filas: list[list]) -> str:
 def describir_tubo(r: Resultado) -> str:
     """Una frase con la forma del tubo elegido (la usa también la consola)."""
     t, geo = r.equipo.tubo.elegido, r.equipo.tubo.geometria
+    if geo.es_horquillas and t.horquillas:
+        h = t.horquillas
+        return (f"DN{t.DN} (Ø int {t.D*1000:.0f} mm), {t.L:.1f} m en {h.tramos} tramos de "
+                f"{h.largo_tramo:.2f} m y {h.curvas} curvas de 180°, en dos planos; "
+                f"sube {h.desnivel:.2f} m ({h.pendiente:.1%})")
     if not geo.es_espiral:
         return f"DN{t.DN} (Ø int {t.D*1000:.0f} mm), {t.L:.1f} m en tramos rectos"
     forma = (f"DN{t.DN} (Ø int {t.D*1000:.0f} mm), {t.L:.1f} m enrollados en espiral de "
@@ -40,16 +47,19 @@ def describir_tubo(r: Resultado) -> str:
     return forma
 
 
-NOMBRE_AISLACION = {"tubo": "Coquilla a lo largo del tubo", "bloque": "Camisa en bloque"}
+NOMBRE_AISLACION = {"tubo": "Coquilla a lo largo del tubo",
+                    "tubo_curvas_desnudas": "Coquilla en los tramos, curvas al aire",
+                    "bloque": "Camisa en bloque"}
 
 
 def aislacion_md(r: Resultado) -> str:
     """Comparación de las dos formas de aislar el tubo y lo que ahorra la elegida."""
     cfg, eq = r.cfg, r.equipo
     a, ops = cfg.aislacion, eq.aislacion
+    elegida = eq.aislacion_elegida or a.forma
     s = [f"\n### Aislación del tubo\n",
          f"Lana mineral de {a.espesor*1000:.0f} mm (k = {a.k} W/m·K), sala a {a.T_amb:.0f} °C. "
-         f"Diseño con: **{NOMBRE_AISLACION[a.forma].lower()}**.\n"]
+         f"Diseño con: **{NOMBRE_AISLACION[elegida].lower()}**.\n"]
     claves = list(cfg.productos)
     placas = eq.placas_calent_por_aislacion
     encab = (["Forma", "Superficie exterior (m²)", "Aislante (m³)", "UA (W/K)"]
@@ -71,6 +81,57 @@ def aislacion_md(r: Resultado) -> str:
                  f"({peor}), y como el agua caliente trabaja cerca de su tope, eso ahorra "
                  f"{placas['tubo'] - placas['bloque']} placas de calentamiento "
                  f"({placas['tubo']} → {placas['bloque']}).\n")
+    if "tubo" in ops and "tubo_curvas_desnudas" in ops:
+        t, d = ops["tubo"], ops["tubo_curvas_desnudas"]
+        tubo = eq.tubo.elegido
+        h, D_ext = tubo.horquillas, tubo.D_ext or tubo.D
+        L_d = h.curvas * (h.largo_curva + 2 * a.union)
+        UA_pelado = ai.ua_desnudo(L_d, D_ext, a.h_desnudo)[0]
+        por_metro = ai.ua_desnudo(1.0, D_ext, a.h_desnudo)[0] / ai.ua_tubo(1.0, D_ext, a)[0]
+        peor = max(claves, key=lambda k: d.dT[k] - t.dT[k])
+        s.append(f"\n**Lo que cuesta dejar las curvas al aire.** Quedan {L_d:.1f} m de caño pelado "
+                 f"({h.curvas} curvas de {h.largo_curva*1000:.0f} mm más {a.union*1000:.0f} mm de unión "
+                 f"a cada lado): {L_d / tubo.L:.0%} del largo, pero {UA_pelado / d.UA:.0%} de la "
+                 f"pérdida, porque un caño pelado pierde {por_metro:.0f} veces más por metro que uno "
+                 f"con coquilla. El producto tiene que entrar {d.dT[peor] - t.dT[peor]:.2f} °C más "
+                 f"caliente al tubo ({peor}); {(d.E_MWh_anio - t.E_MWh_anio)*1000:.0f} kWh/año más; "
+                 f"placas de calentamiento {placas.get('tubo', '—')} con todo aislado y "
+                 f"{placas.get('tubo_curvas_desnudas', '—')} con las curvas al aire.\n")
+    return "\n".join(s)
+
+
+def dimensiones_md(r: Resultado) -> str:
+    """Las cotas para el plano: paquete de placas, bastidor de referencia y tubo."""
+    cfg, eq = r.cfg, r.equipo
+    bas = cfg.bastidor
+    s = ["\n## Dimensiones para el plano\n"]
+    if cfg.placa is not None:
+        pq = dm.paquete(eq.placas_regen, eq.placas_calent, cfg.placa.b, cfg.placa.espesor, bas)
+        lo, hi = bas.largo_rango
+        s.append(f"**Intercambiador de placas.** {pq.placas_termicas} placas térmicas más "
+                 f"{pq.placas_total - pq.placas_termicas} de extremo, a {pq.paso*1000:.1f} mm cada una "
+                 f"(canal + chapa), más {bas.conector*1000:.0f} mm de bastidor intermedio entre "
+                 f"secciones: paquete de **{pq.largo:.2f} m** apretado. Bastidor de referencia con la "
+                 f"misma placa (canal de 3 mm, conexiones DN50): {bas.alto:.2f} m de alto × "
+                 f"{bas.ancho:.2f} m de ancho, {lo:.2f} a {hi:.2f} m de largo según el modelo. "
+                 f"Con lugar para correr la placa de presión y sacar placas (otro paquete de largo), "
+                 f"hace falta un bastidor de **~{pq.largo_bastidor:.1f} m**. La cota final la da "
+                 f"el proveedor.\n")
+    t, geo = eq.tubo.elegido, eq.tubo.geometria
+    if geo.es_horquillas and t.horquillas:
+        h = t.horquillas
+        s.append(f"**Tubo de retención.** {h.tramos} tramos de {h.largo_tramo:.2f} m que alternan "
+                 f"entre dos planos verticales separados {h.entre_planos*1000:.0f} mm (entre ejes), "
+                 f"unidos por {h.curvas} curvas de 180° de {h.largo_curva*1000:.0f} mm de desarrollo "
+                 + (f"(dos codos de 90° y un niple de {h.niple*1000:.0f} mm). " if h.niple > 1e-6 else ". ")
+                 + f"Sube {h.pendiente:.1%} continuo: **{h.desnivel:.2f} m** de la entrada a la salida, "
+                 f"{2 * h.pendiente * (h.largo_tramo + h.largo_curva)*1000:.0f} mm entre dos tramos "
+                 f"del mismo plano. Envolvente con la aislación (Ø {h.D_envolvente*1000:.0f} mm): "
+                 f"**{h.largo:.2f} m × {h.ancho:.2f} m × {h.alto:.2f} m** de alto, más la altura a la "
+                 "que entre el primer tramo y la estructura de soporte (fija, CFIA).\n")
+    elif geo.es_espiral and t.alto:
+        s.append(f"**Tubo de retención.** Espiral de Ø {geo.D_espiral:.2f} m al eje, "
+                 f"{t.alto:.2f} m de alto.\n")
     return "\n".join(s)
 
 
@@ -193,9 +254,16 @@ def markdown(r: Resultado, origen: str = "") -> str:
                  f"o sea v_max/v_media = {geo.factor_espiral:.2f} (Ruthven 1971; Trivedi y "
                  f"Vasudeva 1974; vía Gutierrez et al. 2010). Si un producto tiene Dean ≤ "
                  f"{geo.Dean_min} se usa el de tubo recto.\n")
+    if geo.es_horquillas:
+        s.append(f"Horquillas: partícula más rápida como en tubo recto, v_max/v_media = (3n+1)/(n+1) "
+                 f"en laminar. Subida continua mínima {geo.pendiente:.0%}, curvas incluidas (CFIA). "
+                 f"Curvas de 180° de R = {geo.radio_curva*1000:.0f} mm; Δp por el método 2-K "
+                 f"(Hooper, 1981) con K1 = {geo.K1_curva:.0f} y K∞ = {geo.Kinf_curva}.\n")
     encab = ["DN", "D int (mm)", "Largo (m)", "Volumen (L)", "Δp máx (bar)", "Q CIP (m³/h)"]
     if geo.es_espiral:
         encab += ["Vueltas", "Alto (m)"]
+    if geo.es_horquillas:
+        encab += ["Tramos", "Desnivel (m)"]
     encab.append("Cumple Δp")
     filas = []
     for op in eq.tubo.opciones:
@@ -203,6 +271,8 @@ def markdown(r: Resultado, origen: str = "") -> str:
         fila = [op.DN, op.D * 1000, op.L, op.volumen_L, f"{op.dp_max / 1e5:.3f}", op.Q_CIP_m3_h]
         if geo.es_espiral:
             fila += [op.vueltas, op.alto if op.alto is not None else "—"]
+        if geo.es_horquillas and op.horquillas:
+            fila += [op.horquillas.tramos, op.horquillas.desnivel]
         fila.append("sí" if op.factible else "no")
         filas.append(fila)
     s.append(_tabla(encab, filas))
@@ -213,6 +283,8 @@ def markdown(r: Resultado, origen: str = "") -> str:
         encab += ["Dean", "f espiral / f recto"]
     encab += ["v_max/v_media", "t partícula rápida (min)", "t medio (min)",
               "log rápida", "log media", "Δp (bar)"]
+    if geo.es_horquillas:
+        encab.append("Δp de las curvas (bar)")
     filas = []
     for k, x in t.productos.items():
         fila = [k, x.flujo.regimen.replace("transicion", "transición"), round(x.flujo.Re)]
@@ -220,6 +292,8 @@ def markdown(r: Resultado, origen: str = "") -> str:
             fila += [round(x.flujo.Dean), x.flujo.correccion_f]
         fila += [x.flujo.factor, x.t_rapida_min, x.t_media_min, x.logs_min, x.logs_medio,
                  x.dp / 1e5]
+        if geo.es_horquillas:
+            fila.append(f"{x.dp_curvas / 1e5:.4f}")
         filas.append(fila)
     s.append(_tabla(encab, filas))
 
@@ -235,6 +309,8 @@ def markdown(r: Resultado, origen: str = "") -> str:
     # Aislación del tubo
     if eq.aislacion:
         s.append(aislacion_md(r))
+
+    s.append(dimensiones_md(r))
 
     # Recorrido del producto
     s.append("\n## Temperaturas del producto en el equipo (T de entrada de diseño)\n")
@@ -307,14 +383,17 @@ def escribir(r: Resultado, carpeta: str | Path, origen: str = "") -> Path:
 
     with open(carpeta / "tubo.csv", "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
-        w.writerow(["DN", "D_int_mm", "L_m", "volumen_L", "vueltas", "alto_m", "dp_max_bar",
+        w.writerow(["DN", "D_int_mm", "L_m", "volumen_L", "vueltas", "alto_m", "tramos",
+                    "desnivel_m", "dp_max_bar",
                     "Q_CIP_m3_h", "cumple", "producto", "regimen", "Re", "Dean", "factor",
                     "t_rapida_min", "t_media_min", "logs_min", "logs_medio", "dp_bar"])
         for op in r.equipo.tubo.opciones:
+            h = op.horquillas
             for k, x in op.productos.items():
                 w.writerow([op.DN, op.D * 1000, round(op.L, 2), round(op.volumen_L, 1),
                             round(op.vueltas, 2) if op.vueltas else "",
                             round(op.alto, 3) if op.alto else "",
+                            h.tramos if h else "", round(h.desnivel, 3) if h else "",
                             round(op.dp_max / 1e5, 4), round(op.Q_CIP_m3_h, 2), op.factible,
                             k, x.flujo.regimen, round(x.flujo.Re), round(x.flujo.Dean, 1),
                             round(x.flujo.factor, 3), round(x.t_rapida_min, 3),

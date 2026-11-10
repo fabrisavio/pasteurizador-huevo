@@ -1,5 +1,5 @@
 # =============================================================================
-# Configuración base del pasteurizador (v1.0: U por correlación de placa)
+# Configuración base del pasteurizador (v1.1: U por correlación de placa, tubo en horquillas)
 #
 # Unidades prácticas acá (kg/h, °C, min, bar). El código pasa todo a SI al
 # cargar, salvo las temperaturas, que quedan en °C porque así están escritas
@@ -105,6 +105,15 @@ equipo:
     k_W_mK: 16.3                        # AISI 316L
     diam_puerto_m: 0.05                 # supuesto (DN50); el Δp de puertos casi no pesa
 
+  # Solo para el plano. El bastidor depende del proveedor: se toma uno comercial con
+  # la misma placa (canal libre 3 mm, conexiones DN50) como referencia [alfalavalm6].
+  bastidor:
+    alto_m: 0.92
+    ancho_m: 0.32
+    largo_rango_m: [0.515, 1.43]        # según el largo de bastidor que se compre
+    conector_m: 0.10                    # bastidor intermedio entre las dos secciones (supuesto)
+    placas_extremo_por_seccion: 2       # placa de principio y de fin de cada sección (supuesto)
+
   # Cómo se calcula U:
   #   correlacion (v1): 1/U = 1/h_caliente + 1/h_fría + e/k + ensuciamiento, cada h por correlación
   #   fijo (v0): los valores de U_fijo_W_m2K. Para volver a v0.5 alcanza con  modelo_U: fijo
@@ -140,10 +149,22 @@ equipo:
     DN_diam_int_m: {25: 0.026, 32: 0.032, 40: 0.038, 50: 0.050, 65: 0.066}   # [din11850], serie 2
     DN_diam_ext_m: {25: 0.029, 32: 0.035, 40: 0.041, 50: 0.053, 65: 0.070}
     geometria:
-      tipo: espiral                     # espiral | recto. Con ~100 m nadie lo instala recto
+      # horquillas | espiral | recto. Horquillas (decisión de los tutores, 10/11): tramos
+      # rectos unidos por curvas de 180°, en dos planos, subiendo siempre.
+      tipo: horquillas
+      largo_tramo_max_m: 6.0            # los tubos DIN 11850 vienen de ~6 m [alfalavaldin]
+      radio_curva_m: 0.060              # curva DIN 11852 de DN40, al eje [alfalavaldin]
+      luz_entre_tubos_m: 0.02           # entre tubos vecinos ya aislados (supuesto)
+      # Subida continua de al menos 2 %, curvas incluidas, desde el punto más bajo
+      # hasta la válvula de desvío [cfia2026htst]. Fija el desnivel: 2 % del largo.
+      pendiente_min: 0.02
+      # Curvas de 180° de radio largo, método 2-K: K = K1/Re + K∞·(1 + 1/D[pulg]) [hooper1981twok]
+      K1_curva: 1000
+      Kinf_curva: 0.30
+      # --- solo espiral (la geometría de v1.0, queda para comparar) ---
       diam_espiral_m: 1.0               # diámetro de la hélice, al eje del tubo (supuesto)
       separacion_vueltas_m: 0.01        # luz entre vueltas
-      # Partícula más rápida en la hélice, como fracción del tiempo medio.
+      # Solo espiral. Partícula más rápida en la hélice, como fracción del tiempo medio.
       # Recto laminar newtoniano: 0,5. Hélice: 0,586–0,658 en el análisis de
       # flujo laminar ideal [ruthven1971helical], [trivedi1974rtd], según
       # [gutierrez2010holding], que midieron ≥ 0,70 en un tubo helicoidal real.
@@ -151,18 +172,26 @@ equipo:
       # Es un valor newtoniano; se aplica también a yema y huevo entero, cuyo
       # perfil ya es más plano que la parábola.
       t_min_sobre_t_medio: 0.586
-      Dean_min: 11.6                    # debajo de esto no hay vórtices de Dean [white1929curved]: factor de tubo recto
+      Dean_min: 11.6                    # solo espiral: debajo de esto no hay vórtices de Dean [white1929curved]
     # La pérdida de T en el tubo se calcula con la aislación (antes era 0,5 °C fijo).
     # Para volver a un valor fijo: borrar 'aislacion' y poner  perdida_T_C: 0.5
     aislacion:
-      forma: bloque                     # bloque: la espiral entera en una camisa desmontable | tubo: coquilla a lo largo
+      # tubo: coquilla a lo largo (decisión de los tutores, 10/11) | bloque: solo con espiral
+      forma: tubo
+      curvas_aisladas: false            # las curvas de 180° y sus uniones quedan al aire
       espesor_m: 0.05
       k_W_mK: 0.040                     # lana mineral; mantas de fibra 0,038–0,046 [incropera2007fundamentals], Tabla A.3
       h_ext_W_m2K: 10                   # convección natural + radiación (supuesto; casi no influye)
+      h_desnudo_W_m2K: 10               # caño de acero pelado a ~60 °C en aire quieto (supuesto)
+      union_sin_aislar_m: 0.05          # a cada lado de una curva: abrazadera sin coquilla (supuesto)
       T_ambiente_C: 20                  # sala de proceso (supuesto)
-      holgura_m: 0.05                   # luz entre la espiral y la camisa
+      holgura_m: 0.05                   # solo bloque: luz entre la espiral y la camisa
       # La aislación del tubo de retención tiene que poder sacarse para inspeccionarlo [cfia2026htst]
     dp_max_bar: 1.0                     # cota inferior del DN: bomba y juntas
+    # DN del tubo: vacío = el más chico que cumple el Δp (DN40). En horquillas el tubo
+    # sube 2 % de su largo: con DN50 queda en 66 m y 1,3 m de desnivel, a cambio de
+    # pedir 10,6 m³/h de CIP en vez de 6,1. Para probarlo:  DN_fijo: 50
+    DN_fijo:
     # El Δp de la yema es proporcional a su K, y K es incierto: la ecuación y la
     # tabla de [gut2003yolk] difieren 23–38 % sobre 48 °C. Se pide que entre con 1,4×.
     factor_seguridad_dp: 1.4

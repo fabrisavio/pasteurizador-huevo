@@ -65,12 +65,34 @@ def test_corrida_base_cumple(resultado):
     assert resultado.cumple, resultado.alertas
 
 
-def test_base_enrollada_descarta_DN32(resultado):
-    # DN32 entra raspando en Δp; con el factor de seguridad sobre K queda afuera
+def test_base_en_horquillas_descarta_DN32(resultado):
+    # DN32 se pasa del Δp con el factor de seguridad sobre K: queda DN40
     tubo = resultado.equipo.tubo
-    assert tubo.geometria.es_espiral
+    assert tubo.geometria.es_horquillas
     assert not next(op for op in tubo.opciones if op.DN == 32).factible
     assert tubo.elegido.DN == 40
+
+
+def test_horquillas_suben_el_dos_por_ciento_del_largo(resultado):
+    t = resultado.equipo.tubo.elegido
+    h = t.horquillas
+    assert h.desnivel == pytest.approx(h.pendiente * t.L)
+    assert h.pendiente >= resultado.cfg.geometria_tubo.pendiente - 1e-12
+    assert h.tramos * h.largo_tramo + h.curvas * h.largo_curva == pytest.approx(t.L)
+
+
+def test_curvas_al_aire_pierden_mas_que_todo_aislado(resultado):
+    eq = resultado.equipo
+    assert eq.aislacion_elegida == "tubo_curvas_desnudas"   # base: curvas al aire
+    d, t = eq.aislacion["tubo_curvas_desnudas"], eq.aislacion["tubo"]
+    assert all(d.dT[k] > t.dT[k] for k in d.dT)
+    assert eq.placas_calent_por_aislacion["tubo_curvas_desnudas"] >= eq.placas_calent_por_aislacion["tubo"]
+    assert eq.placas_calent == eq.placas_calent_por_aislacion["tubo_curvas_desnudas"]
+
+
+def _en_espiral(c):
+    c["equipo"]["holding"]["geometria"]["tipo"] = "espiral"
+    c["equipo"]["holding"]["aislacion"]["forma"] = "bloque"
 
 
 def test_temperaturas_del_recorrido_en_orden(resultado):
@@ -86,11 +108,27 @@ def test_config_de_validacion_no_se_confunde_con_una_de_diseno():
         config.cargar(RAIZ / "config" / "validacion_gut2003.yaml")
 
 
-def test_el_bloque_ahorra_placas_frente_a_la_coquilla(resultado):
-    eq = resultado.equipo
+def test_en_espiral_el_bloque_pierde_menos_que_la_coquilla(tmp_path):
+    eq = _correr_con(tmp_path, _en_espiral).equipo
     assert eq.aislacion["bloque"].E_MWh_anio < eq.aislacion["tubo"].E_MWh_anio
     assert eq.placas_calent_por_aislacion["bloque"] <= eq.placas_calent_por_aislacion["tubo"]
-    assert eq.placas_calent == eq.placas_calent_por_aislacion["bloque"]  # base: bloque
+    assert eq.placas_calent == eq.placas_calent_por_aislacion["bloque"]
+
+
+def test_la_espiral_de_v1_sube_menos_que_lo_que_pide_CFIA(tmp_path):
+    r = _correr_con(tmp_path, _en_espiral)
+    assert any("menos que el 2%" in a for a in r.avisos)
+
+
+def test_la_clara_como_agua_pediria_menos_regeneracion(tmp_path, resultado):
+    # térmicamente es casi agua, pero es ~10 veces más viscosa: con μ de agua
+    # transfiere mucho mejor y en el tubo pasaría a turbulento
+    def como_agua(c):
+        c["productos"]["CP"]["termicas"] = "agua"
+        c["productos"]["CP"]["reologia"] = "agua"
+    r = _correr_con(tmp_path, como_agua)
+    assert r.equipo.placas_regen < resultado.equipo.placas_regen
+    assert r.equipo.tubo.elegido.productos["CP"].flujo.regimen == "turbulento"
 
 
 def test_el_tubo_sale_a_la_T_legal_mas_el_margen(resultado):
@@ -154,6 +192,7 @@ def test_base_usa_U_por_correlacion(resultado):
 
 def test_modo_fijo_reproduce_v05(tmp_path):
     def fijo(c):
+        _en_espiral(c)   # v0.5 tenía el tubo en espiral con camisa en bloque
         c["equipo"]["modelo_U"] = "fijo"
     r = _correr_con(tmp_path, fijo)
     assert (r.equipo.placas_regen, r.equipo.placas_calent) == (10, 24)

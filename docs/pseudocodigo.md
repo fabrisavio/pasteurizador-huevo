@@ -1,4 +1,4 @@
-# Pseudocódigo: modelo paramétrico del pasteurizador (v0.8: v1 implementada el 08/11)
+# Pseudocódigo: modelo paramétrico del pasteurizador (v0.9: v1.1 implementada el 10/11)
 
 > **Cambios al implementar v0** (respecto de la v0.2 aprobada):
 > - Agua con el paquete `iapws` (IAPWS-IF97, Python puro) en vez de CoolProp (IAPWS-95): en agua líquida difieren muy poco y se instala en cualquier compu sin compilar.
@@ -12,6 +12,7 @@
 > - **v0.4 (02/11):** la pérdida de T en el tubo se calcula: el tubo es un intercambiador contra el ambiente (Cr = 0), ΔT = (T_sale − T_amb)·(exp(UA/C) − 1). Dos formas de aislar: coquilla a lo largo del tubo, o camisa desmontable alrededor de toda la espiral (bloque). Se itera tubo ↔ pérdida por punto fijo. El reporte compara las dos, incluidas las placas de calentamiento que pide cada una (bloque 24, coquilla 27). Margen de control de 0,5 °C sobre la T legal: el tubo sale a T_legal + margen y el calentamiento entrega eso más la pérdida; los log se siguen contando a la T legal. Factor 1,4 sobre el Δp del tubo por la incertidumbre de K de la yema (sin él DN32 entraba con 1 % de margen).
 > - **v0.5 (08/11, cierre de v0):** ruta de la soda para la clara. Al terminar el desazucarado se lleva a pH 9,3 con NaOH diluida y se pasteuriza a 56,7 °C × 4,96 min (FSIS, Tabla III.A, pH 9,3, 5,7 log). Cinética de CP a pH 9,3 por ajuste log-lineal de esa tabla: D₅₆,₇ = 0,854 min, z = 4,17 °C. Agua caliente de CP ≤ 59 °C (Cunningham, p. 296). Nuevos campos `pH` (informativo) y `T_espesa_C` por producto: si el tubo supera la T de espesamiento, el reporte da un aviso (la reología no lo ve). El reporte muestra pH y tratamiento legal por producto. Con esto CP pasa a gobernar regeneración y tubo. Justificación lista para el informe en `docs/justificacion_clara.tex`. Reemplaza la estabilización con alumbre documentada en v0.3.
 > - **v1.0 (08/11):** U por correlación. `placas.py`: geometría del canal (Dh = 2b/φ, largo efectivo A/(φ·w)), Nu y f de Kumar (1984) por ángulo y tramo de Re, Martin (1996, constantes del VDI) como contraste, Sharifi para placas planas, viscosidad generalizada de Delplace y Leuliet (υ = 2, ξ = 12) para ley de potencia, corrección μ/μ_pared con la pared a la media de las dos corrientes. 1/U = 1/h_c + 1/h_f + e/k + R_ens, con los ensuciamientos de Gut. `seccion_phe` acepta U como función de las cuatro T (entra en el mismo punto fijo). Diseño: para cada número de pasos candidato, cada producto busca el mínimo de canales por paso cuya área instalada (2·P·N − 1 placas) cubre la que pide; el equipo toma el máximo; entre los arreglos con Δp ≤ 1 bar en todas las corrientes, el de menos placas. Δp = 4f·(L/Dh)·G²/(2ρ)·P + 1,4·P·Gp²/(2ρ). CIP de placas por Re ≥ 2150 (Galiński, ec. 6). `--validar` agrega el chequeo del U de Gut: con su correlación y sus datos sale 2,6–3,8 veces menor que el publicado. `modelo_U: fijo` sigue reproduciendo v0.5.
+> - **v1.1 (10/11, correcciones de los tutores):** tubo en horquillas (`geometria: horquillas`): tramos rectos de hasta 6 m unidos por curvas DIN 11852 de 180° (R = 60 mm), en dos planos que se alternan, subiendo al menos 2 % continuo con curvas incluidas (CFIA). La partícula más rápida se toma como en tubo recto, (3n+1)/(n+1) en laminar: el tubo pasa de 97,5 m (espiral) a 114 m. Δp de cada curva por el método 2-K de Hooper (1981), K = 1000/Re + 0,30·(1 + 1/D[pulg]), sumado a la fricción del largo total. Disposición: N = ⌈(L + Lc)/(Lt_máx + Lc)⌉ tramos; si los tubos aislados no entran a 2R entre planos, la curva lleva un niple; si dos tramos del mismo plano no tienen lugar uno sobre otro, sube la pendiente; desnivel = pendiente × L. Aislación con coquilla, con o sin las curvas: las curvas al aire pierden h·π·D·L. Al comparar formas de aislar se vuelve a elegir el arreglo de calentamiento (con los pasos fijos la diferencia de placas se exageraba). `DN_fijo` en la config para elegir otro DN. `dimensiones.py`: paquete de placas (placas × (b + chapa) + conector) y bastidor de referencia (Alfa Laval M6) para el plano. Modelo `agua` en térmicas y reología, para comparar un producto contra el agua. Aviso si la espiral sube menos que la pendiente mínima (la de v1.0 subía 1,6 %).
 
 Pasteurizador de placas (PHE) con regeneración y calentamiento con agua caliente, más tubo de retención (holding tube). Sin sección de enfriamiento, porque los tres productos salen a 45 °C directo al secador.
 
@@ -168,6 +169,15 @@ función elegir_tubo(productos):
     descartar DN con Δp_p > dp_max (DN chicos: Δp ∝ 1/D⁶ en laminar)
     entre los que quedan, elegir el que minimiza el largo sin disparar el caudal de CIP
     informar el sobreproceso de HP y CP (opción a evaluar: tramos de tubo seleccionables por producto)
+
+función disponer_horquillas(L, D_ext, geo):                    # v1.1
+    D_env  = D_ext + 2·espesor_coquilla
+    entre  = máx(2R, D_env + luz)                             # ejes de los dos planos
+    Lc     = π·R + (entre − 2R)                               # curva de 180° (+ niple si hace falta)
+    N      = ⌈(L + Lc)/(Lt_máx + Lc)⌉ ;  Lt = (L − (N−1)·Lc)/N
+    s      = máx(pendiente_min, (D_env + luz)/(2·(Lt + Lc)))   # que entren dos tramos del mismo plano
+    desnivel = s·L                                            # nunca menos que pendiente_min × L
+    Δp_curvas = (N−1) · (K1/Re + K∞·(1 + 1/D[pulg])) · ρ·v²/2  # Hooper (1981)
 ```
 
 **Qué sale:** diámetro, largo, Δp y cuánto tiempo pasa cada producto. Con el tubo dimensionado por el peor caso, los otros productos se quedan más de 3,5 min.
@@ -318,6 +328,7 @@ caso Gut dentro de tolerancia
 |---|---|
 | v0 | U fijo de Gut (regen. 756 / calent. 864 W/m²K), un producto, tubo con factor 2: corre de punta a punta |
 | v1 | Correlaciones de h y f, los tres productos, diseño + verificación, tubo con Metzner–Reed, CIP |
+| v1.1 | Tubo en horquillas con subida mínima, curvas por Hooper, coquilla con o sin curvas, dimensiones para el plano |
 | v2 | Perfil axial en las placas (ODE) y letalidad acumulada (F), energía anual |
 | después | Sensibilidad (tornado → Sobol), optimización, Monte Carlo |
 

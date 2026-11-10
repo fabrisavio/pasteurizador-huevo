@@ -58,3 +58,23 @@ def test_energia_anual_es_potencia_por_horas():
 def test_forma_desconocida_es_error():
     with pytest.raises(ValueError):
         ai.Aislacion(forma="manta")
+
+
+def test_curvas_al_aire_pierden_mas_y_la_parte_pelada_es_h_pi_D_L():
+    a = ai.Aislacion(forma="tubo", espesor=0.05, k=0.04, h_ext=10, curvas_aisladas=False,
+                     h_desnudo=10)
+    prods = [ai.ProductoTermico("X", m=0.25, cp=3600, T_sale=60, horas_anio=1000)]
+    ops = ai.opciones(100.0, 0.041, None, None, prods, a, L_desnudo=5.0)
+    todo, aire = ops["tubo"], ops["tubo_curvas_desnudas"]
+    UA_tramos = ai.ua_tubo(95.0, 0.041, a)[0]
+    assert aire.UA == pytest.approx(UA_tramos + 10 * math.pi * 0.041 * 5.0)
+    assert aire.dT["X"] > todo.dT["X"]
+    assert ai.clave_elegida(a, ops) == "tubo_curvas_desnudas"
+
+
+def test_sin_curvas_no_hay_opcion_de_curvas_al_aire():
+    a = ai.Aislacion(forma="tubo", curvas_aisladas=False)
+    prods = [ai.ProductoTermico("X", m=0.25, cp=3600, T_sale=60, horas_anio=1000)]
+    ops = ai.opciones(100.0, 0.041, None, None, prods, a)
+    assert set(ops) == {"tubo"}
+    assert ai.clave_elegida(a, ops) == "tubo"

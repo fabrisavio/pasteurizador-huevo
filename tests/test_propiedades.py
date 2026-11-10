@@ -60,3 +60,11 @@ def test_clara_vale_9_3_mPas_a_30C_y_es_newtoniana():
 def test_viscosidades_bajan_con_la_temperatura():
     for modelo in ("leon_munguia_huevo_entero", "gut2003_yema", "clara_uf_thapon_scalzo"):
         assert pr.reologia(modelo, 50.0).K < pr.reologia(modelo, 20.0).K
+
+
+def test_modelo_agua_para_comparar():
+    # el producto "como agua": térmicas IAPWS y viscosidad newtoniana del agua
+    t = pr.termicas("agua", None, 40.0)
+    assert t.cp == pytest.approx(pr.agua(40.0).cp)
+    r = pr.reologia("agua", 40.0)
+    assert r.n == 1.0 and r.K == pytest.approx(pr.agua_reologia(40.0).K)

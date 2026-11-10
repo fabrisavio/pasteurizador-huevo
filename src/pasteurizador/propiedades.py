@@ -112,6 +112,9 @@ def termicas(modelo: str, composicion: dict[str, float] | None, T: float) -> Ter
         return choi_okos(composicion, T)
     if modelo == "gut2003_yema":
         return gut2003_yema(T)
+    if modelo == "agua":
+        # Para comparar: el producto con las propiedades del agua (IAPWS-IF97)
+        return agua(T)
     raise ValueError(f"Modelo de propiedades térmicas desconocido: {modelo}")
 
 
@@ -215,6 +218,9 @@ _REOLOGIAS = {
     "leon_munguia_huevo_entero": _leon_munguia_huevo_entero,
     "gut2003_yema": _gut2003_yema,
     "clara_uf_thapon_scalzo": _clara_uf_thapon_scalzo,
+    # Para comparar un producto contra el agua (se define más abajo; el
+    # diccionario se consulta recién cuando se llama a reologia()).
+    "agua": lambda T: agua_reologia(T),
 }
 
 

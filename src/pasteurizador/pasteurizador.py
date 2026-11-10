@@ -214,6 +214,7 @@ class Equipo:
     aislacion: dict[str, ai.OpcionAislacion] = field(default_factory=dict)
     # Placas de calentamiento que haría falta con cada forma de aislar
     placas_calent_por_aislacion: dict[str, int] = field(default_factory=dict)
+    aislacion_elegida: str = ""   # clave de la opción de diseño en `aislacion`
     avisos: list[str] = field(default_factory=list)
     # v1: arreglo elegido y los evaluados, por sección (None / vacío con U fijo)
     arreglo_regen: pl.Arreglo | None = None
@@ -276,8 +277,12 @@ def _perdidas_por_aislacion(cfg: Config, tubo: Tubo, perdidas: dict[str, float])
         T_sale=cfg.T_operacion(p), horas_anio=p.horas_anio,
     ) for p in cfg.productos.values()]
     D_ext = t.D_ext or t.D  # sin dato de diámetro exterior, el interior (aproximación)
+    # En horquillas: lo que queda al aire si las curvas no se aíslan
+    # (cada curva más una unión a cada lado).
+    h = t.horquillas
+    L_desnudo = h.curvas * (h.largo_curva + 2 * cfg.aislacion.union) if h else None
     return ai.opciones(t.L, D_ext, geo.D_espiral if geo.es_espiral else None, t.alto,
-                       termicos, cfg.aislacion)
+                       termicos, cfg.aislacion, L_desnudo)
 
 
 def disenar_equipo(cfg: Config) -> Equipo:
@@ -293,12 +298,12 @@ def disenar_equipo(cfg: Config) -> Equipo:
     for _ in range(20):
         tubo = elegir_tubo(productos_tubo(cfg, perdidas), cfg.DN_diam, cfg.criterios,
                            cfg.dp_max_holding, cfg.v_CIP, cfg.geometria_tubo, cfg.DN_ext,
-                           cfg.factor_dp)
+                           cfg.factor_dp, cfg.DN_fijo)
         if cfg.aislacion is None:
             break  # pérdida fija: no hay nada que iterar
         opciones_ais = _perdidas_por_aislacion(cfg, tubo, perdidas)
-        forma = cfg.aislacion.forma
-        if forma not in opciones_ais:  # bloque pedido para un tubo recto
+        forma = ai.clave_elegida(cfg.aislacion, opciones_ais)
+        if forma not in opciones_ais:  # bloque pedido para un tubo que no es espiral
             avisos.append("Aislación en bloque solo tiene sentido con el tubo en espiral; "
                           "se usa coquilla a lo largo del tubo")
             forma = "tubo"
@@ -318,8 +323,12 @@ def disenar_equipo(cfg: Config) -> Equipo:
         )
 
     if not cfg.con_correlacion:
-        return _equipo_U_fijo(cfg, tubo, perdidas, opciones_ais, avisos)
-    return _equipo_U_correlacion(cfg, tubo, perdidas, opciones_ais, avisos)
+        eq = _equipo_U_fijo(cfg, tubo, perdidas, opciones_ais, avisos)
+    else:
+        eq = _equipo_U_correlacion(cfg, tubo, perdidas, opciones_ais, avisos)
+    if opciones_ais:
+        eq.aislacion_elegida = forma
+    return eq
 
 
 def _equipo_U_fijo(cfg, tubo, perdidas, opciones_ais, avisos) -> Equipo:
@@ -403,11 +412,21 @@ def _equipo_U_correlacion(cfg, tubo, perdidas, opciones_ais, avisos) -> Equipo:
     disenos = {k: disenar_producto(p, cfg, perdidas[k], reg.arreglo.pasos, cal.arreglo.pasos)
                for k, p in cfg.productos.items()}
 
+    # Para comparar las formas de aislar: con cada pérdida se vuelve a elegir
+    # el arreglo de calentamiento (pasos y canales). Con los pasos fijos la
+    # comparación exagera la diferencia: el número de placas va a saltos y un
+    # paso más puede absorber la pérdida extra.
     placas_por_aislacion = {}
     for forma, op in opciones_ais.items():
-        N = max(disenar_producto(p, cfg, op.dT[k], 1, cal.arreglo.pasos).arreglo_calent.canales
-                for k, p in cfg.productos.items())
-        placas_por_aislacion[forma] = pl.Arreglo(cal.arreglo.pasos, N).placas
+        if all(abs(op.dT[k] - perdidas[k]) < 1e-9 for k in perdidas):
+            placas_por_aislacion[forma] = cal.placas  # es la de diseño
+            continue
+        d_P = {P: {k: disenar_producto(p, cfg, op.dT[k], reg.arreglo.pasos, P)
+                   for k, p in cfg.productos.items()}
+               for P in cfg.pasos_candidatos}
+        m_w = max(d.m_agua for d in next(iter(d_P.values())).values())
+        ops_c = [_opcion(cfg, "calentamiento", P, d, m_w) for P, d in d_P.items()]
+        placas_por_aislacion[forma] = _elegir(ops_c, []).placas
 
     Q_CIP = {}
     if cfg.Re_CIP_placas:

@@ -653,7 +653,8 @@
 % práctica para el tubo de retención: bomba de tiempo sellada al caudal máximo; no calentar
 % el tubo; aislación solo si se puede sacar para inspeccionarlo; cut-in de la válvula de
 % desvío al menos 0,25 °C sobre el cut-out. Base del margen de control (0,5 °C) y de la
-% camisa desmontable.
+% camisa desmontable. 10/11: subida continua de al menos 2 % (2 cm cada 100 cm), codos
+% incluidos, desde el punto más bajo hasta la válvula de desvío; soportes fijos.
 @online{cfia2026htst,
   author       = {{Canadian Food Inspection Agency}},
   title        = {Dairy processing: High temperature short time ({HTST}) pasteurization systems},
@@ -758,4 +759,37 @@
   version      = {1.3.1},
   url          = {https://github.com/CalebBell/fluids},
   urldate      = {2026-11-08},
+}
+
+% [CONSULTADA 10/11/2026, catálogo] Curvas higiénicas DIN 11852: R = 60 mm al eje para DN40
+% (41 × 1,5), p. 1.5.35; tubos DIN 11850 / EN 10357-A en largos de fabricación de ~6 m,
+% p. 1.5.32. Radio de las curvas del tubo en horquillas y largo máximo de tramo.
+@manual{alfalavaldin,
+  organization = {{Alfa Laval}},
+  title        = {{DIN} Fittings and Tubes Catalog},
+  url          = {https://ww2.nelsonjameson.com/hubfs/Alfa%20Laval%20Catalogs/Alfa_Laval_DIN_Fittings_and_Tubes_Catalog.pdf},
+  urldate      = {2026-11-10},
+}
+
+% [CONSULTADA 10/11/2026, folleto] Bastidor de referencia para el plano: M6-FM/FG de
+% 920 × 320 mm, 515–1430 mm de largo según bastidor; canal libre de 3,0 mm (placa M6-M);
+% conexiones DN50. Es un equipo comercial con la misma placa que la "típica" del modelo.
+@manual{alfalavalm6,
+  organization = {{Alfa Laval}},
+  title        = {M6 Gasketed Plate Heat Exchanger},
+  number       = {CHE00071-4-EN-GB},
+  url          = {https://www.alfalaval.dk/globalassets/documents/products/heat-transfer/plate-heat-exchangers/gasketed-plate-and-frame-heat-exchangers/industrial/m6_pdleaflet_pct00115en.pdf},
+  urldate      = {2026-11-10},
+}
+
+% [A CONSULTAR; constantes vía Neutrium] Método 2-K para pérdidas en accesorios:
+% K = K1/Re + K∞(1 + 1/D[pulg]). Curva de 180° de radio largo: K1 = 1000, K∞ = 0,30.
+@article{hooper1981twok,
+  author       = {Hooper, William B.},
+  title        = {The Two-K Method Predicts Head Losses in Pipe Fittings},
+  journaltitle = {Chemical Engineering},
+  volume       = {88},
+  number       = {17},
+  pages        = {96--100},
+  date         = {1981},
 }

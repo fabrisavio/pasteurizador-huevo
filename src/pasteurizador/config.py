@@ -7,7 +7,7 @@ todo el código trabaja en SI y no hay que pensar en unidades.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import yaml
@@ -15,6 +15,7 @@ import yaml
 from . import propiedades as pr
 from .aislacion import Aislacion
 from .cinetica import Cinetica
+from .dimensiones import Bastidor
 from .holding import Criterios, Geometria
 from .placas import CORRELACIONES, Placa
 
@@ -81,6 +82,8 @@ class Config:
     dp_max_placas: float = 1e5    # Pa, por sección y por corriente
     Re_CIP_placas: float | None = None
     T_CIP: float = 70.0           # °C
+    bastidor: Bastidor = field(default_factory=lambda: Bastidor())  # para el plano
+    DN_fijo: int | None = None    # None: el DN más chico que cumple el Δp
 
     @property
     def con_correlacion(self) -> bool:
@@ -142,6 +145,9 @@ def _aislacion(d: dict | None) -> Aislacion | None:
         h_ext=d.get("h_ext_W_m2K", 10.0),
         T_amb=d.get("T_ambiente_C", 20.0),
         holgura=d.get("holgura_m", 0.05),
+        curvas_aisladas=bool(d.get("curvas_aisladas", True)),
+        h_desnudo=d.get("h_desnudo_W_m2K", d.get("h_ext_W_m2K", 10.0)),
+        union=d.get("union_sin_aislar_m", 0.05),
     )
 
 
@@ -167,6 +173,10 @@ def cargar(ruta: str | Path) -> Config:
     if "aislacion" not in hold and "perdida_T_C" not in hold:
         raise ConfigInvalida("equipo.holding necesita 'aislacion' (se calcula la pérdida) "
                              "o 'perdida_T_C' (valor fijo)")
+    aislacion = _aislacion(hold.get("aislacion"))
+    # Con coquilla, cada tramo es más gordo: eso define cuánto separar las horquillas
+    extra = 2 * aislacion.espesor if aislacion and aislacion.forma == "tubo" else 0.0
+    bas = eq.get("bastidor", {})
     return Config(
         productos={k: _producto(k, v) for k, v in c["productos"].items()},
         area_placa=eq["placa"]["area_m2"],
@@ -180,8 +190,15 @@ def cargar(ruta: str | Path) -> Config:
             separacion=geo.get("separacion_vueltas_m", 0.01),
             t_min_sobre_t_medio=geo.get("t_min_sobre_t_medio", 0.586),
             Dean_min=geo.get("Dean_min", 11.6),
+            largo_tramo=geo.get("largo_tramo_max_m", 6.0),
+            radio_curva=geo.get("radio_curva_m", 0.06),
+            luz=geo.get("luz_entre_tubos_m", 0.02),
+            extra_envolvente=extra,
+            K1_curva=geo.get("K1_curva", 1000.0),
+            Kinf_curva=geo.get("Kinf_curva", 0.30),
+            pendiente=geo.get("pendiente_min", 0.02),
         ),
-        aislacion=_aislacion(hold.get("aislacion")),
+        aislacion=aislacion,
         perdida_fija=hold.get("perdida_T_C"),
         margen_control=c.get("control", {}).get("margen_sobre_T_legal_C", 0.0),
         dp_max_holding=hold["dp_max_bar"] * 1e5,
@@ -205,4 +222,12 @@ def cargar(ruta: str | Path) -> Config:
         dp_max_placas=arr.get("dp_max_seccion_bar", 1.0) * 1e5,
         Re_CIP_placas=cip.get("Re_min_placas"),
         T_CIP=cip.get("T_C", 70.0),
+        bastidor=Bastidor(
+            alto=bas.get("alto_m", 0.92),
+            ancho=bas.get("ancho_m", 0.32),
+            largo_rango=tuple(bas.get("largo_rango_m", [0.515, 1.43])),
+            conector=bas.get("conector_m", 0.10),
+            extremos_por_seccion=bas.get("placas_extremo_por_seccion", 2),
+        ),
+        DN_fijo=hold.get("DN_fijo"),
     )

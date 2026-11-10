@@ -5,13 +5,16 @@ tubo pierde hay que dárselo antes, en el calentamiento, así que el agua
 caliente tiene que estar más caliente. Con la clara eso se come el margen
 contra su tope de 62 °C. Y la energía perdida se paga todo el año.
 
-Dos formas de aislar un tubo enrollado:
+Formas de aislar:
 - tubo: cada metro de cañería con su coquilla. La superficie exterior es la
   de un cilindro de ~100 m de largo.
-- bloque: la espiral entera dentro de una camisa aislante, como un termo.
-  La superficie exterior es la de un cilindro de ~1 m × 1,5 m.
+- tubo con las curvas desnudas (solo en horquillas): coquilla en los tramos
+  rectos; las curvas de 180° y sus uniones quedan al aire, que es más simple
+  de desarmar e inspeccionar. Ese pedazo pierde como un caño pelado.
+- bloque (solo en espiral): la espiral entera dentro de una camisa aislante,
+  como un termo. La superficie exterior es la de un cilindro de ~1 m × 1,5 m.
 La normativa pide que la aislación del tubo de retención se pueda sacar para
-inspeccionarlo [cfia2026htst]: la camisa tiene que ser desmontable.
+inspeccionarlo [cfia2026htst]: coquilla o camisa, tienen que ser desmontables.
 
 Modelo: el tubo es un intercambiador cuyo "otro fluido" es el ambiente, con
 capacidad infinita (Cr = 0). Con UA total [W/K] y la capacidad del producto
@@ -42,12 +45,16 @@ class Aislacion:
     h_ext: float = 10.0       # W/(m²·K), convección natural + radiación
     T_amb: float = 20.0       # °C, sala de proceso
     holgura: float = 0.05     # m, luz entre la espiral y la camisa (bloque)
+    # Horquillas con coquilla: ¿se aíslan también las curvas de 180°?
+    curvas_aisladas: bool = True
+    h_desnudo: float = 10.0   # W/(m²·K), caño de acero pelado al aire
+    union: float = 0.05       # m sin coquilla a cada lado de una curva (abrazadera)
 
     def __post_init__(self):
         if self.forma not in ("bloque", "tubo"):
             raise ValueError(f"Forma de aislación desconocida: {self.forma} (bloque | tubo)")
-        if self.espesor < 0 or self.k <= 0 or self.h_ext <= 0:
-            raise ValueError("Aislación: espesor ≥ 0, k > 0 y h_ext > 0")
+        if self.espesor < 0 or self.k <= 0 or self.h_ext <= 0 or self.h_desnudo <= 0:
+            raise ValueError("Aislación: espesor ≥ 0, k > 0, h_ext > 0 y h_desnudo > 0")
 
 
 @dataclass
@@ -84,6 +91,17 @@ def ua_tubo(L: float, D_ext: float, a: Aislacion) -> tuple[float, float, float]:
     area = math.pi * D_ais * L
     volumen = L * math.pi / 4 * (D_ais**2 - D_ext**2)
     return UA, area, volumen
+
+
+def ua_desnudo(L: float, D_ext: float, h: float) -> tuple[float, float]:
+    """UA y área de un caño pelado: solo la convección exterior, h·π·D·L.
+
+    La película interna y la pared se desprecian: pierde un poco más de lo
+    real (lado seguro). En laminar la película interna de la yema puede
+    sumar ~15 % de resistencia; con la clara y el huevo entero, menos.
+    """
+    area = math.pi * D_ext * L
+    return h * area, area
 
 
 def ua_bloque(D_espiral: float, alto: float, D_ext: float, a: Aislacion) -> tuple[float, float, float]:
@@ -125,9 +143,28 @@ def evaluar(forma: str, UA: float, area: float, volumen: float,
 
 
 def opciones(L: float, D_ext: float, D_espiral: float | None, alto: float | None,
-             productos: list[ProductoTermico], a: Aislacion) -> dict[str, OpcionAislacion]:
-    """Las dos formas de aislar, para comparar. En tubo recto solo hay coquilla."""
+             productos: list[ProductoTermico], a: Aislacion,
+             L_desnudo: float | None = None) -> dict[str, OpcionAislacion]:
+    """Las formas de aislar que tienen sentido para este tubo, para comparar.
+
+    Siempre la coquilla entera. En espiral, además la camisa en bloque. En
+    horquillas (L_desnudo = lo que queda al aire si no se aíslan las curvas),
+    además la coquilla solo en los tramos rectos.
+    """
     res = {"tubo": evaluar("tubo", *ua_tubo(L, D_ext, a), productos, a.T_amb)}
     if D_espiral and alto:
         res["bloque"] = evaluar("bloque", *ua_bloque(D_espiral, alto, D_ext, a), productos, a.T_amb)
+    if L_desnudo:
+        L_desnudo = min(L_desnudo, L)
+        UA_t, area_t, vol_t = ua_tubo(L - L_desnudo, D_ext, a)
+        UA_d, area_d = ua_desnudo(L_desnudo, D_ext, a.h_desnudo)
+        res["tubo_curvas_desnudas"] = evaluar("tubo_curvas_desnudas", UA_t + UA_d,
+                                              area_t + area_d, vol_t, productos, a.T_amb)
     return res
+
+
+def clave_elegida(a: Aislacion, ops: dict[str, OpcionAislacion]) -> str:
+    """Cuál de las opciones calculadas es la de diseño, según la config."""
+    if a.forma == "tubo" and not a.curvas_aisladas and "tubo_curvas_desnudas" in ops:
+        return "tubo_curvas_desnudas"
+    return a.forma

@@ -20,25 +20,25 @@ al secador ◄── [regeneración, lado caliente] ◄────────�
 
 Todos los datos de entrada viven en `config/base.yaml`, cada uno con su fuente. Si cambia un caudal o una temperatura, se cambia ahí y el diseño se recalcula solo.
 
-## Resultados de la configuración base (v1.0.0)
+## Resultados de la configuración base (v1.1.0)
 
 | Elemento | Resultado | Lo gobierna |
 |---|---|---|
 | Regeneración | 15 placas de 0,15 m² (2,25 m²), 1 paso × 8 canales | Clara: necesita ε ≈ 0,55 contra ~0,3 de huevo y yema. Más pasos darían menos placas, pero la yema pasaría 1 bar |
-| Calentamiento | 47 placas (7,05 m²), 3 pasos × 8 canales | Yema: el U más bajo (456 W/m²K) y la que más calor pide |
-| U en operación | Regeneración 339–504 W/m²K; calentamiento 456–611 W/m²K | Kumar (1984) para placa chevron de 45°; el ensuciamiento de diseño pone el 20–57 % de la resistencia |
-| Tubo de retención | DN40, 97,5 m enrollados en una espiral de 1 m de diámetro × 1,6 m de alto (31 vueltas), 111 L, Δp 0,38 bar | Clara: 4,96 min (la yema queda casi igual, con 3,5 min y más caudal) |
-| Aislación del tubo | Camisa desmontable de 50 mm alrededor de toda la espiral: pierde 0,3 °C y 0,76 MWh/año | Contra coquilla a lo largo del tubo: 0,95 °C, 2,2 MWh/año y 53 placas de calentamiento en vez de 47 |
+| Calentamiento | 55 placas (8,25 m²), 4 pasos × 7 canales | Yema: el U más bajo (469 W/m²K) y la que más calor pide |
+| U en operación | Regeneración 339–504 W/m²K; calentamiento 469–633 W/m²K | Kumar (1984) para placa chevron de 45°; el ensuciamiento de diseño pone el 20–57 % de la resistencia |
+| Tubo de retención | DN40, 114 m en horquillas: 19 tramos de 5,8 m y 18 curvas de 180°, en dos planos. Sube 2 % continuo: 2,3 m de desnivel. Envolvente 6,1 × 0,3 × 2,4 m. 130 L, Δp 0,42 bar | Clara: 4,96 min (la yema queda casi igual, con 3,5 min y más caudal) |
+| Aislación del tubo | Coquilla desmontable de 50 mm en los tramos, curvas al aire: pierde hasta 1,45 °C y 3,4 MWh/año | Con las curvas también aisladas: 1,12 °C, 2,6 MWh/año y 53 placas de calentamiento en vez de 55 |
 | CIP | Placas: 2,6 m³/h para Re ≥ 2150; tubo: 6,1 m³/h a 1,5 m/s | Manda el tubo |
-| Calor | 50,4 MWh/año | Huevo entero: 86 % del total |
+| Calor | 53,0 MWh/año | Huevo entero: 86 % del total |
 
 **Qué cambió de v0.5 a v1.** En v0.5 el U era un dato: 756 y 864 W/m²K, del pasteurizador de yema de Gut et al. (2003). Con la correlación y los datos que publica el propio paper, ese U no se reconstruye: sale 2,6 a 3,8 veces menor (`python correr.py --validar`). En v1 cada U sale de los dos coeficientes de película, la pared y el ensuciamiento, para cada producto y cada sección. Sin ensuciamiento, v1 pide las mismas 34 placas que v0.5: el U de v0.5 equivalía a un equipo limpio. Con el ensuciamiento de diseño que usa Gut (el de leche de Lalande et al., 1979) pide 62. Ese margen es la decisión más grande que queda abierta. Para volver al cálculo de v0.5 alcanza con `modelo_U: fijo` en la config.
 
 Como la regeneración se dimensiona para la clara, huevo y yema regeneran de más y llegan al secador a unos 31 °C (huevo entero) y 38 °C (yema) en lugar de 45 °C. Es aceptable y queda informado para el diseño del atomizador.
 
-**El tubo no se achica cambiando el diámetro.** En laminar, el volumen lo fijan el caudal, los 3,5 min y el factor de la partícula más rápida; el DN solo lo reparte entre largo y Δp. Enrollarlo en espiral cambia el factor: en cada vuelta la fuerza centrífuga arma vórtices de Dean que sacan a la partícula rápida del centro del tubo. En una hélice, la partícula más rápida tarda al menos 0,586 veces el tiempo medio (Ruthven 1971; Trivedi y Vasudeva 1974; Gutierrez et al. 2010 midieron 0,70 o más), contra 0,5 en tubo recto. Con ese valor, el más conservador publicado, el tubo es un 15 % más corto que en recto. A cambio sube la fricción por vuelta: DN32 queda al borde del Δp máximo y se descarta con el factor de seguridad sobre la viscosidad de la yema.
+**El tubo en horquillas (v1.1).** Hasta v1.0 el tubo iba enrollado en espiral; a pedido de los tutores pasa a horquillas: tramos rectos unidos por curvas de 180°, que es la forma habitual. Tres cosas cambian. Primero, se pierde la ayuda de la hélice: en tubo recto la partícula más rápida va al doble de la media (contra 1,71 veces en la hélice), así que el tubo se alarga de 97,5 a 114 m. Las curvas mezclan algo, pero no se cuenta: es el lado seguro. Segundo, CFIA pide que el tubo suba al menos 2 % continuo, curvas incluidas: el desnivel total no puede ser menor que 2 % del largo, se lo arme como se lo arme. Con 114 m son 2,3 m. Para no gastar más altura que eso, los tramos alternan entre dos planos verticales y cada curva pasa de uno al otro: una hélice aplastada. (La espiral de v1.0 subía 1,6 %, menos de lo que pide CFIA.) Tercero, la aislación: con coquilla a lo largo, el tubo pierde 1,1–1,5 °C en vez de 0,3 °C, y como el agua caliente trabaja cerca del tope de cada producto, eso cuesta placas de calentamiento.
 
-**Aislar la espiral entera sale mejor que aislar el tubo.** Una camisa alrededor de la espiral tiene 9 m² de superficie; la coquilla a lo largo de 97 m de tubo, 43 m². Con la camisa el producto pierde un tercio, y eso no solo ahorra aislante y calor: como el agua caliente trabaja a 1–2 °C del tope de cada producto, cada décima que el producto no pierde en el tubo es área que no hace falta en el calentamiento. Son 3 placas menos.
+**El tubo no se achica cambiando el diámetro, pero sí se acorta.** En laminar, el volumen lo fijan el caudal, el tiempo y el factor de la partícula más rápida; el DN solo lo reparte entre largo y Δp. Por eso todos los DN dan 130 L. Pero en horquillas el largo es altura (2 % de él), así que el DN pesa: DN50 queda en 66 m, 11 tramos y 1,3 m de desnivel, con Δp 0,09 bar y 2 placas de calentamiento menos, a cambio de pedir 10,6 m³/h de CIP en vez de 6,1. El modelo elige el DN más chico que cumple el Δp (DN40); para probar otro, `DN_fijo: 50` en la config.
 
 **Validación.** El mismo código reproduce el pasteurizador de yema publicado por Gut et al. (2003), Tabla 7, con diferencias de 0,02 °C o menos en las cinco temperaturas que reporta el paper: la yema a la salida de la regeneración (T2), del calentamiento (T3), del tubo de retención (T4), de la regeneración del lado pasteurizado (T5) y del enfriamiento (T6). Tolerancia: 0,5 °C. Eso valida balances, propiedades y encadenamiento. Las correlaciones de placa se controlan contra valores de referencia (constantes de Kumar y Martin), y el U de Gut no se usa porque no sale de sus propios datos. `python correr.py --validar` muestra las dos tablas.
 
@@ -51,12 +51,12 @@ python -m venv .venv
 source .venv/Scripts/activate     # Windows (Git Bash). En Mac/Linux: source .venv/bin/activate
 pip install -e ".[dev]"
 
-pytest                            # 84 tests, incluida la validación
+pytest                            # 99 tests, incluida la validación
 python correr.py                  # diseña con config/base.yaml → resultados/reporte.md
 python correr.py --validar        # compara con Gut et al. (2003)
 ```
 
-Para probar otro caso (otro caudal, otro diámetro de espiral, tubo recto…), copiá la configuración base, editá la copia y corré esa:
+Para probar otro caso (otro caudal, otro largo de tramo, otro DN, el tubo en espiral…), copiá la configuración base, editá la copia y corré esa:
 
 ```bash
 cp config/base.yaml config/mi_caso.yaml
@@ -74,8 +74,9 @@ config/
 src/pasteurizador/
   propiedades.py            Choi–Okos (térmicas), reología medida por producto, agua IAPWS-IF97
   cinetica.py               modelo D–z: logaritmos logrados
-  holding.py                tubo de retención: Metzner–Reed, partícula más rápida, espiral, elección de DN
-  aislacion.py              pérdida de calor del tubo: coquilla o camisa en bloque
+  holding.py                tubo de retención: Metzner–Reed, partícula más rápida, horquillas o espiral, elección de DN
+  aislacion.py              pérdida de calor del tubo: coquilla (con o sin las curvas) o camisa en bloque
+  dimensiones.py            paquete de placas y bastidor, para el plano
   seccion_phe.py            una sección de placas en contracorriente (ε-NTU), diseño y verificación
   placas.py                 placa chevron: h (Kumar, Martin), Δp de canales y puertos, U, caudal de CIP
   pasteurizador.py          las dos pasadas: diseño por producto, equipo único, verificación
@@ -99,6 +100,7 @@ correr.py                   punto de entrada
 | v0.4 | Pérdida del tubo calculada con la aislación (coquilla o camisa en bloque) y comparada, margen de control sobre la T legal, factor de seguridad en el Δp del tubo | Hecho (0.4.0) |
 | v0.5 | Clara a pH 9,3 con soda y 56,7 °C × 4,96 min (FSIS, Tabla III.A); aviso de espesamiento por producto; pH en el reporte. Cierre de v0 | Hecho (0.5.0) |
 | v1 | U por correlación de placa chevron (Kumar 1984; Martin 1996 de contraste) para cada producto y sección, arreglo de pasos elegido por Δp, Δp en placas, chequeo de CIP, chequeo del U de Gut | Hecho (1.0.0) |
+| v1.1 | Tubo en horquillas con subida de 2 % (CFIA) y curvas por Hooper (1981); coquilla con o sin las curvas; dimensiones para el plano; DN fijable; comparación de un producto contra el agua | Hecho (1.1.0) |
 | v2 | Perfil axial en las placas y letalidad acumulada (F) de placas más tubo | — |
 | Después | Sensibilidad (tornado → Sobol), optimización de costo anual, Monte Carlo | — |
 
@@ -111,10 +113,12 @@ correr.py                   punto de entrada
 - **Arreglo:** mismos pasos y canales de los dos lados, en contracorriente, tratado como contracorriente pura (en Gut, ese modelo difiere ≤ 0,8 °C del distribuido). Δp máximo de 1 bar por sección y por corriente.
 - **CIP de placas:** Re ≥ 2150 en los canales (el caudal mínimo efectivo de Galiński et al., 2025, trasladado como Re) con la solución a 70 °C.
 - **Tubo en transición** (2100 < Re < 4000 en recto; en espiral, la banda se corre hacia arriba): se diseña con el factor laminar de la partícula más rápida, que es el lado seguro.
-- **Espiral:** las correcciones de fricción de White (1929) e Ito (1959) y el t_min/t_medio = 0,586 son resultados para newtonianos; se aplican también a yema y huevo entero, que son levemente pseudoplásticos y tienen un perfil más plano. El diámetro de la hélice (1 m) es un supuesto.
-- **Aislación:** lana mineral de 50 mm, k = 0,040 W/m·K, sala a 20 °C. En la camisa en bloque se supone el aire interior a la T del producto, que es la cota superior de la pérdida.
+- **Horquillas:** partícula más rápida como en tubo recto (las curvas mezclan algo y no se cuenta). Curvas DIN 11852 de R = 60 mm; si los tubos aislados no entran a 2R entre planos, la curva lleva un niple. Δp de curvas por el método 2-K de Hooper (1981), pensado para newtonianos, con el Re de Metzner–Reed. Subida mínima 2 %, curvas incluidas (CFIA). Largo máximo de tramo 6 m (largo de fabricación de los tubos).
+- **Espiral (alternativa):** las correcciones de fricción de White (1929) e Ito (1959) y el t_min/t_medio = 0,586 son resultados para newtonianos. El diámetro de la hélice (1 m) es un supuesto.
+- **Aislación:** lana mineral de 50 mm, k = 0,040 W/m·K, sala a 20 °C. Las curvas al aire pierden como caño pelado (h = 10 W/m²K, sin la película interna: lado seguro), con 50 mm sin aislar a cada lado de la curva para la abrazadera. En la camisa en bloque (solo espiral) se supone el aire interior a la T del producto.
+- **Dimensiones del bastidor:** las da el proveedor. Se toma de referencia un bastidor comercial con la misma placa (Alfa Laval M6: 0,92 × 0,32 m, 0,52–1,43 m de largo); el paquete de placas sí sale del modelo.
 - **Margen de control:** el control trabaja 0,5 °C sobre la T legal (supuesto: el doble de la histéresis mínima de la válvula de desvío).
-- **Δp del tubo con factor 1,4:** cubre la mayor diferencia de K de la yema entre la ecuación y la tabla de Gut et al. (2003). Sin él, DN32 entra con 1 % de margen.
+- **Δp del tubo con factor 1,4:** cubre la mayor diferencia de K de la yema entre la ecuación y la tabla de Gut et al. (2003).
 - **Letalidad solo en el tubo.** Las placas también matan; Gut encontró que suben el F de 3,5 a 5,5 min. Eso entra en v2.
 - **Reologías extrapoladas** a la temperatura de retención en los tres productos. El reporte lo avisa.
 - **Espesamiento:** huevo entero (desde 56 °C) y clara a pH 9 (desde 56,7 °C) pasan por el tubo arriba de la T donde empiezan a espesar. Las reologías medidas no llegan ahí: el Δp real del tubo puede ser algo mayor. El reporte lo avisa.
@@ -123,7 +127,7 @@ correr.py                   punto de entrada
 
 ## Fuentes
 
-Las claves entre corchetes en `config/base.yaml` remiten a `docs/fuentes.bib`. Las principales: FSIS (2026) y el Reglamento Bromatológico Nacional para los pares T–t; Choi y Okos (1986) para propiedades térmicas; Kumar (1984) vía Kakaç et al. (2012) y Martin (1996) para las placas, con Delplace y Leuliet (1995) vía Gut et al. (2003) para los fluidos ley de potencia; Galiński et al. (2025) para el Δp de puertos y el CIP; Gut et al. (2003), León Munguía, Thapon y Scalzo et al. (1970) para reología; Metzner y Reed (1955) para el tubo; Ruthven (1971), Trivedi y Vasudeva (1974) y Gutierrez et al. (2010) para la partícula más rápida en la hélice; FSIS (2026, Tabla III.A) y el manual AEB para la clara a pH 9,3; Health Canada (2013), 21 CFR 184.1763 y el Codex GSFA para la soda como regulador de pH; CFIA para la operación del tubo de retención (bomba de tiempo, válvula de desvío, aislación desmontable).
+Las claves entre corchetes en `config/base.yaml` remiten a `docs/fuentes.bib`. Las principales: FSIS (2026) y el Reglamento Bromatológico Nacional para los pares T–t; Choi y Okos (1986) para propiedades térmicas; Kumar (1984) vía Kakaç et al. (2012) y Martin (1996) para las placas, con Delplace y Leuliet (1995) vía Gut et al. (2003) para los fluidos ley de potencia; Galiński et al. (2025) para el Δp de puertos y el CIP; Gut et al. (2003), León Munguía, Thapon y Scalzo et al. (1970) para reología; Metzner y Reed (1955) para el tubo; Ruthven (1971), Trivedi y Vasudeva (1974) y Gutierrez et al. (2010) para la partícula más rápida en la hélice; Hooper (1981) para las curvas y el catálogo DIN de Alfa Laval para sus radios; FSIS (2026, Tabla III.A) y el manual AEB para la clara a pH 9,3; Health Canada (2013), 21 CFR 184.1763 y el Codex GSFA para la soda como regulador de pH; CFIA para la operación del tubo de retención (bomba de tiempo, válvula de desvío, aislación desmontable, subida de 2 %).
 
 ---
 

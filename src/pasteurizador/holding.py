@@ -15,8 +15,13 @@ Metzner–Reed (1955). Define una viscosidad aparente evaluada en la pared para
 que sigan valiendo f = 16/Re y la transición en ~2100. Con n = 1 todo vuelve
 al caso newtoniano.
 
-Dos geometrías:
+Tres geometrías:
 - recto: tramos rectos; las curvas de unión se desprecian.
+- horquillas: tramos rectos unidos por curvas de 180°, como un serpentín
+  (la forma habitual de un tubo de retención). Para la partícula más rápida
+  se toma el factor de tubo recto: las curvas mezclan algo el centro con la
+  pared, pero no hay un valor validado para tramos de metros entre curvas, y
+  no contarlo es el lado seguro. Las curvas sí suman Δp (Hooper, 1981).
 - espiral: tubo enrollado en hélice. En cada vuelta la fuerza centrífuga
   empuja el fluido rápido del centro hacia afuera y arma dos remolinos
   (vórtices de Dean). Eso sube la fricción, retrasa la turbulencia y mezcla
@@ -65,7 +70,7 @@ class Criterios:
 
 @dataclass(frozen=True)
 class Geometria:
-    tipo: str = "recto"             # recto | espiral
+    tipo: str = "recto"             # recto | espiral | horquillas
     D_espiral: float | None = None  # m, diámetro de la hélice (al eje del tubo)
     separacion: float = 0.01        # m, luz entre vueltas
     # Partícula más rápida en la hélice: t_min/t_medio. 0,586 → v_max/v_media = 1,71
@@ -73,13 +78,28 @@ class Geometria:
     # Por debajo de este Dean el flujo secundario es despreciable (White, 1929):
     # el tubo se comporta como recto y se usa el factor de tubo recto.
     Dean_min: float = 11.6
+    # --- horquillas: tramos rectos unidos por curvas de 180° ---
+    largo_tramo: float = 6.0        # m, largo máximo de cada tramo (los tubos vienen de ~6 m)
+    radio_curva: float = 0.06       # m, al eje (curva DIN 11852 de DN40: R = 60 mm)
+    luz: float = 0.02               # m, luz mínima entre tubos vecinos, con su aislación
+    # m que la aislación le suma al diámetro exterior de cada tramo (2 × espesor
+    # si se aísla con coquilla): define cuánto hay que separar los tramos.
+    extra_envolvente: float = 0.0
+    # Hooper (1981), curva de 180° de radio largo (R/D ≈ 1,5): K = K1/Re + K∞·(1 + 1/D[pulg])
+    K1_curva: float = 1000.0
+    Kinf_curva: float = 0.30
+    # --- todas: subida continua mínima en el sentido del flujo, curvas
+    # incluidas, desde el punto más bajo hasta la válvula de desvío (CFIA) ---
+    pendiente: float = 0.02
 
     def __post_init__(self):
         # Se ejecuta al crear la ficha: valida antes de que el error aparezca lejos.
-        if self.tipo not in ("recto", "espiral"):
-            raise ValueError(f"Geometría de tubo desconocida: {self.tipo}")
+        if self.tipo not in ("recto", "espiral", "horquillas"):
+            raise ValueError(f"Geometría de tubo desconocida: {self.tipo} (recto | espiral | horquillas)")
         if self.tipo == "espiral" and not self.D_espiral:
             raise ValueError("La espiral necesita su diámetro (diam_espiral_m)")
+        if self.tipo == "horquillas" and (self.largo_tramo <= 0 or self.radio_curva <= 0):
+            raise ValueError("Horquillas: largo_tramo_m y radio_curva_m tienen que ser positivos")
         if not 0.5 <= self.t_min_sobre_t_medio <= 1.0:
             # 0,5 es el laminar newtoniano recto; 1 es flujo pistón ideal
             raise ValueError("t_min/t_medio tiene que estar entre 0,5 y 1")
@@ -90,12 +110,83 @@ class Geometria:
         return self.tipo == "espiral"
 
     @property
+    def es_horquillas(self) -> bool:
+        return self.tipo == "horquillas"
+
+    @property
     def factor_espiral(self) -> float:
         """v_max/v_media de diseño en la hélice."""
         return 1.0 / self.t_min_sobre_t_medio
 
 
 RECTO = Geometria()  # geometría por defecto, para no repetirla en cada llamada
+
+
+@dataclass
+class Horquillas:
+    """Cómo queda armado un tubo en horquillas, y cuánto lugar ocupa."""
+    tramos: int
+    largo_tramo: float     # m, cada tramo recto (todos iguales)
+    curvas: int            # curvas de 180° (una menos que los tramos)
+    largo_curva: float     # m, desarrollo de cada curva: π·R más el niple si hace falta
+    niple: float           # m, tramo recto dentro de la curva para separar los planos
+    entre_planos: float    # m, distancia entre ejes de los dos planos
+    pendiente: float       # m/m, la que resulta (≥ la mínima pedida)
+    desnivel: float        # m, de la entrada a la salida del tubo
+    D_envolvente: float    # m, tubo + aislación
+    largo: float           # m, envolvente del tubo con su aislación (en planta)
+    ancho: float           # m
+    alto: float            # m, del eje del tramo más bajo a la cara superior del más alto
+
+
+def disponer_horquillas(L: float, D_ext: float, geo: Geometria) -> Horquillas:
+    """Arma L metros de tubo en horquillas con subida continua.
+
+    Disposición: dos planos verticales, uno adelante y otro atrás. Los tramos
+    alternan de plano y cada curva de 180° pasa de uno al otro, así el tubo
+    da vueltas alrededor de un rectángulo largo y angosto, subiendo siempre
+    (una hélice aplastada). Es la forma de menor altura posible: si todo el
+    tubo sube al menos la pendiente mínima, el desnivel total no puede ser
+    menor que pendiente × L, se lo arme como se lo arme.
+
+    Dos tramos seguidos del mismo plano quedan separados en altura por dos
+    subidas; si eso no alcanza para que entren los tubos con su aislación,
+    se sube la pendiente. Entre planos, si el diámetro de la curva (2R) es
+    menor que el tubo aislado más la luz, la curva se arma con dos codos de
+    90° y un niple recto en el medio.
+    """
+    D_env = D_ext + geo.extra_envolvente
+    R = geo.radio_curva
+    entre = max(2 * R, D_env + geo.luz)
+    niple = entre - 2 * R
+    Lc = math.pi * R + niple
+    # L = N·Lt + (N−1)·Lc con Lt ≤ largo_tramo → el N más chico que alcanza
+    N = max(1, math.ceil((L + Lc) / (geo.largo_tramo + Lc) - 1e-9))
+    Lt = (L - (N - 1) * Lc) / N
+    s = geo.pendiente
+    if N > 2:
+        s = max(s, (D_env + geo.luz) / (2 * (Lt + Lc)))
+    desnivel = s * L
+    if N > 1:
+        largo, ancho = Lt + 2 * (R + D_env / 2), entre + D_env
+    else:
+        largo, ancho = Lt, D_env
+    return Horquillas(N, Lt, N - 1, Lc, niple, entre, s, desnivel, D_env,
+                      largo, ancho, desnivel + D_env)
+
+
+def K_curva(Re: float, D: float, geo: Geometria) -> float:
+    """Coeficiente de pérdida de una curva de 180°, método 2-K de Hooper (1981).
+
+    K = K1/Re + K∞·(1 + 1/D), con D en pulgadas. El primer término pesa en
+    laminar (la yema, Re ~ 170, da K ≈ 6) y el segundo en turbulento.
+    """
+    return geo.K1_curva / Re + geo.Kinf_curva * (1 + 0.0254 / D)
+
+
+def pendiente_espiral(D_ext: float, geo: Geometria) -> float:
+    """Lo que sube la hélice por metro de tubo: un paso por cada vuelta de π·Dc."""
+    return (D_ext + geo.separacion) / (math.pi * geo.D_espiral)
 
 
 @dataclass
@@ -203,11 +294,12 @@ class ResultadoProductoTubo:
     clave: str
     flujo: Flujo
     L_requerido: float   # m: lo que este producto solo necesitaría
-    dp: float            # Pa, con el largo instalado
+    dp: float            # Pa, con el largo instalado (con curvas, si hay)
     t_rapida_min: float  # residencia de la partícula más rápida
     t_media_min: float   # residencia media
     logs_min: float      # logs de la partícula más rápida
     logs_medio: float
+    dp_curvas: float = 0.0  # Pa, la parte del Δp que ponen las curvas
 
 
 @dataclass
@@ -223,6 +315,7 @@ class OpcionDN:
     D_ext: float | None = None
     vueltas: float | None = None   # solo espiral
     alto: float | None = None      # m, solo espiral
+    horquillas: Horquillas | None = None  # solo horquillas
     factible: bool = True
     motivo: str = ""
 
@@ -247,21 +340,29 @@ def evaluar_DN(DN: int, D: float, productos: list[ProductoTubo], crit: Criterios
              for p in productos}
     gobierna = max(L_req, key=L_req.get)  # la clave con el mayor valor
     L = L_req[gobierna]  # un solo tubo físico: manda el que más largo pide
+    # En horquillas, L incluye el desarrollo de las curvas: el producto sigue
+    # a temperatura ahí adentro y cuenta para el tiempo.
+    horq = disponer_horquillas(L, D_ext or D, geo) if geo.es_horquillas else None
 
     res = {}
     for p in productos:
         fl = flujos[p.clave]
         t_rap = L / (fl.factor * fl.v_media) / 60
         t_med = L / fl.v_media / 60
+        # Curvas: K de Hooper por la energía cinética. La fricción del largo
+        # total ya incluye el de las curvas: se cuenta dos veces (lado seguro).
+        dp_c = (horq.curvas * K_curva(fl.Re, D, geo) * p.rho * fl.v_media**2 / 2
+                if horq else 0.0)
         res[p.clave] = ResultadoProductoTubo(
             clave=p.clave,
             flujo=fl,
             L_requerido=L_req[p.clave],
-            dp=caida_presion(p, fl, D, L),
+            dp=caida_presion(p, fl, D, L) + dp_c,
             t_rapida_min=t_rap,
             t_media_min=t_med,
             logs_min=p.cinetica.logs(t_rap, p.T_holding),
             logs_medio=p.cinetica.logs(t_med, p.T_holding),
+            dp_curvas=dp_c,
         )
     A = math.pi * D**2 / 4
     vueltas, alto = _forma_espiral(L, D_ext, geo)
@@ -269,7 +370,7 @@ def evaluar_DN(DN: int, D: float, productos: list[ProductoTubo], crit: Criterios
         DN=DN, D=D, L=L, volumen_L=A * L * 1000, gobierna=gobierna,
         dp_max=max(r.dp for r in res.values()),
         Q_CIP_m3_h=v_CIP * A * 3600, productos=res,
-        D_ext=D_ext, vueltas=vueltas, alto=alto,
+        D_ext=D_ext, vueltas=vueltas, alto=alto, horquillas=horq,
     )
 
 
@@ -289,7 +390,7 @@ class Tubo:
 def elegir_tubo(productos: list[ProductoTubo], DN_diam: dict[int, float],
                 crit: Criterios, dp_max_Pa: float, v_CIP: float,
                 geo: Geometria = RECTO, DN_ext: dict[int, float] | None = None,
-                factor_dp: float = 1.0) -> Tubo:
+                factor_dp: float = 1.0, DN_fijo: int | None = None) -> Tubo:
     """Evalúa todos los DN y elige el más chico que respeta el Δp máximo.
 
     Por qué el más chico: en laminar el volumen no depende del DN, así que el
@@ -300,6 +401,9 @@ def elegir_tubo(productos: list[ProductoTubo], DN_diam: dict[int, float],
     factor_dp: el Δp calculado se multiplica por esto antes de compararlo con
     el máximo. En laminar Δp es proporcional a K, y K de la yema es incierto:
     sin factor, un DN que entra raspando queda afuera con un lote más espeso.
+
+    DN_fijo: se usa ese DN en vez del más chico (por ejemplo, para acortar un
+    tubo en horquillas, que sube 2 % de su largo); se avisa si no cumple el Δp.
     """
     DN_ext = DN_ext or {}  # si no vino, diccionario vacío
     opciones = [evaluar_DN(DN, D, productos, crit, v_CIP, geo, DN_ext.get(DN))
@@ -312,7 +416,16 @@ def elegir_tubo(productos: list[ProductoTubo], DN_diam: dict[int, float],
 
     avisos = []
     factibles = [op for op in opciones if op.factible]
-    if factibles:
+    if DN_fijo is not None:
+        if DN_fijo not in DN_diam:
+            raise ValueError(f"DN_fijo = {DN_fijo} no está entre los DN disponibles {sorted(DN_diam)}")
+        elegido = next(op for op in opciones if op.DN == DN_fijo)
+        if not elegido.factible:
+            avisos.append(f"Tubo: DN{DN_fijo} fijado en la config no cumple el Δp máximo ({elegido.motivo})")
+        elif factibles and factibles[0].DN != DN_fijo:
+            avisos.append(f"Tubo: DN{DN_fijo} fijado en la config; el más chico que cumple el Δp "
+                          f"sería DN{factibles[0].DN}")
+    elif factibles:
         elegido = factibles[0]  # están ordenados de menor a mayor DN
     else:
         elegido = opciones[-1]
@@ -332,6 +445,31 @@ def elegir_tubo(productos: list[ProductoTubo], DN_diam: dict[int, float],
             )
 
     recto = None
+    if geo.es_horquillas and elegido.horquillas:
+        h = elegido.horquillas
+        avisos.append(
+            "Tubo en horquillas: la partícula más rápida se toma como en tubo recto "
+            "(las curvas mezclan algo y no se cuenta: lado seguro). Δp de curvas por "
+            "Hooper (1981), pensado para newtonianos, con el Re de Metzner–Reed: aproximación"
+        )
+        if h.niple > 1e-6:
+            avisos.append(
+                f"Tubo: las curvas de 180° se arman con dos codos de 90° (R = {geo.radio_curva*1000:.0f} mm) "
+                f"y un niple de {h.niple*1000:.0f} mm, para que los tramos aislados de los dos "
+                f"planos no se toquen ({h.entre_planos*1000:.0f} mm entre ejes)"
+            )
+        if h.pendiente > geo.pendiente + 1e-9:
+            avisos.append(
+                f"Tubo: con tramos de {h.largo_tramo:.2f} m la pendiente sube a {h.pendiente:.1%} "
+                f"para que entren los tubos aislados uno sobre otro (mínimo {geo.pendiente:.0%})"
+            )
+    if geo.es_espiral and elegido.D_ext:
+        s_esp = pendiente_espiral(elegido.D_ext, geo)
+        if s_esp < geo.pendiente:
+            avisos.append(
+                f"Tubo: la espiral sube {s_esp:.1%} por metro, menos que el {geo.pendiente:.0%} "
+                "continuo que pide CFIA para el tubo de retención"
+            )
     if geo.es_espiral:
         relacion = geo.D_espiral / elegido.D
         if not 15 <= relacion <= 860:

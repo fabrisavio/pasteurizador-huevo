@@ -79,18 +79,20 @@ def main() -> int:
     print(f"  Tubo:          {reporte.describir_tubo(r)}")
     print(f"                 {t.volumen_L:.0f} L, Δp {t.dp_max/1e5:.2f} bar "
           f"(máx {cfg.dp_max_holding/1e5:.1f}), CIP {t.Q_CIP_m3_h:.1f} m³/h, largo fijado por {t.gobierna}")
+    if t.horquillas:
+        h = t.horquillas
+        print(f"                 envolvente {h.largo:.2f} × {h.ancho:.2f} m en planta, "
+              f"sube {h.desnivel:.2f} m de la entrada a la salida")
     if eq.aislacion:
         a = cfg.aislacion
-        elegida = eq.aislacion.get(a.forma) or eq.aislacion["tubo"]
+        elegida = eq.aislacion[eq.aislacion_elegida]
         peor = max(eq.perdida_tubo, key=eq.perdida_tubo.get)
         print(f"  Aislación:     {reporte.NOMBRE_AISLACION[elegida.forma].lower()}, "
               f"{a.espesor*1000:.0f} mm: pierde hasta {eq.perdida_tubo[peor]:.2f} °C ({peor}), "
               f"{elegida.E_MWh_anio:.2f} MWh/año")
-        otra = next((o for f, o in eq.aislacion.items() if f != elegida.forma), None)
-        if otra:
-            print(f"                 con {reporte.NOMBRE_AISLACION[otra.forma].lower()}: "
+        for otra in (o for f, o in eq.aislacion.items() if f != elegida.forma):
+            print(f"                 {reporte.NOMBRE_AISLACION[otra.forma].lower()}: "
                   f"{otra.dT[peor]:.2f} °C, {otra.E_MWh_anio:.2f} MWh/año, "
-                  f"{otra.area_ext:.0f} m² de revestimiento contra {elegida.area_ext:.0f}, "
                   f"{eq.placas_calent_por_aislacion[otra.forma]} placas de calentamiento "
                   f"contra {eq.placas_calent_por_aislacion[elegida.forma]}")
     else:
