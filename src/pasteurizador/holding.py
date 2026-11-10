@@ -43,7 +43,7 @@ Construcciones de Python que aparecen acá (y en el resto del paquete):
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from .cinetica import Cinetica
 
@@ -81,6 +81,9 @@ class Geometria:
     # --- horquillas: tramos rectos unidos por curvas de 180° ---
     largo_tramo: float = 6.0        # m, largo máximo de cada tramo (los tubos vienen de ~6 m)
     radio_curva: float = 0.06       # m, al eje (curva DIN 11852 de DN40: R = 60 mm)
+    # Radio por DN (las curvas DIN 11852 crecen con el tubo): ((DN, R), ...).
+    # Si el DN no está, se usa radio_curva. Tupla y no dict para que la ficha sea inmutable.
+    radios_curva: tuple[tuple[int, float], ...] = ()
     luz: float = 0.02               # m, luz mínima entre tubos vecinos, con su aislación
     # m que la aislación le suma al diámetro exterior de cada tramo (2 × espesor
     # si se aísla con coquilla): define cuánto hay que separar los tramos.
@@ -113,6 +116,10 @@ class Geometria:
     def es_horquillas(self) -> bool:
         return self.tipo == "horquillas"
 
+    def radio_para(self, DN: int) -> float:
+        """Radio de la curva de 180° para ese DN."""
+        return dict(self.radios_curva).get(DN, self.radio_curva)
+
     @property
     def factor_espiral(self) -> float:
         """v_max/v_media de diseño en la hélice."""
@@ -126,6 +133,7 @@ RECTO = Geometria()  # geometría por defecto, para no repetirla en cada llamada
 class Horquillas:
     """Cómo queda armado un tubo en horquillas, y cuánto lugar ocupa."""
     tramos: int
+    radio: float           # m, radio de las curvas (al eje)
     largo_tramo: float     # m, cada tramo recto (todos iguales)
     curvas: int            # curvas de 180° (una menos que los tramos)
     largo_curva: float     # m, desarrollo de cada curva: π·R más el niple si hace falta
@@ -171,7 +179,7 @@ def disponer_horquillas(L: float, D_ext: float, geo: Geometria) -> Horquillas:
         largo, ancho = Lt + 2 * (R + D_env / 2), entre + D_env
     else:
         largo, ancho = Lt, D_env
-    return Horquillas(N, Lt, N - 1, Lc, niple, entre, s, desnivel, D_env,
+    return Horquillas(N, R, Lt, N - 1, Lc, niple, entre, s, desnivel, D_env,
                       largo, ancho, desnivel + D_env)
 
 
@@ -342,6 +350,8 @@ def evaluar_DN(DN: int, D: float, productos: list[ProductoTubo], crit: Criterios
     L = L_req[gobierna]  # un solo tubo físico: manda el que más largo pide
     # En horquillas, L incluye el desarrollo de las curvas: el producto sigue
     # a temperatura ahí adentro y cuenta para el tiempo.
+    if geo.es_horquillas:
+        geo = replace(geo, radio_curva=geo.radio_para(DN))  # la curva de este DN
     horq = disponer_horquillas(L, D_ext or D, geo) if geo.es_horquillas else None
 
     res = {}
@@ -454,7 +464,7 @@ def elegir_tubo(productos: list[ProductoTubo], DN_diam: dict[int, float],
         )
         if h.niple > 1e-6:
             avisos.append(
-                f"Tubo: las curvas de 180° se arman con dos codos de 90° (R = {geo.radio_curva*1000:.0f} mm) "
+                f"Tubo: las curvas de 180° se arman con dos codos de 90° (R = {h.radio*1000:.0f} mm) "
                 f"y un niple de {h.niple*1000:.0f} mm, para que los tramos aislados de los dos "
                 f"planos no se toquen ({h.entre_planos*1000:.0f} mm entre ejes)"
             )

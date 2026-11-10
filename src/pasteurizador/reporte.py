@@ -257,7 +257,7 @@ def markdown(r: Resultado, origen: str = "") -> str:
     if geo.es_horquillas:
         s.append(f"Horquillas: partícula más rápida como en tubo recto, v_max/v_media = (3n+1)/(n+1) "
                  f"en laminar. Subida continua mínima {geo.pendiente:.0%}, curvas incluidas (CFIA). "
-                 f"Curvas de 180° de R = {geo.radio_curva*1000:.0f} mm; Δp por el método 2-K "
+                 f"Curvas de 180° de R = {t.horquillas.radio*1000:.0f} mm en el DN{t.DN}; Δp por el método 2-K "
                  f"(Hooper, 1981) con K1 = {geo.K1_curva:.0f} y K∞ = {geo.Kinf_curva}.\n")
     encab = ["DN", "D int (mm)", "Largo (m)", "Volumen (L)", "Δp máx (bar)", "Q CIP (m³/h)"]
     if geo.es_espiral:

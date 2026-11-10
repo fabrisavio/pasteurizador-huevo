@@ -65,12 +65,15 @@ def test_corrida_base_cumple(resultado):
     assert resultado.cumple, resultado.alertas
 
 
-def test_base_en_horquillas_descarta_DN32(resultado):
-    # DN32 se pasa del Δp con el factor de seguridad sobre K: queda DN40
+def test_base_en_horquillas_con_DN50_fijado(resultado):
+    # DN32 se pasa del Δp con el factor de seguridad sobre K; el más chico que
+    # cumple sería DN40, pero la base fija DN50 (más corto: el largo es altura)
     tubo = resultado.equipo.tubo
     assert tubo.geometria.es_horquillas
     assert not next(op for op in tubo.opciones if op.DN == 32).factible
-    assert tubo.elegido.DN == 40
+    assert next(op for op in tubo.opciones if op.DN == 40).factible
+    assert tubo.elegido.DN == 50
+    assert any("sería DN40" in a for a in tubo.avisos)
 
 
 def test_horquillas_suben_el_dos_por_ciento_del_largo(resultado):
@@ -83,16 +86,18 @@ def test_horquillas_suben_el_dos_por_ciento_del_largo(resultado):
 
 def test_curvas_al_aire_pierden_mas_que_todo_aislado(resultado):
     eq = resultado.equipo
-    assert eq.aislacion_elegida == "tubo_curvas_desnudas"   # base: curvas al aire
+    assert eq.aislacion_elegida == "tubo"   # base: coquilla también en las curvas
     d, t = eq.aislacion["tubo_curvas_desnudas"], eq.aislacion["tubo"]
     assert all(d.dT[k] > t.dT[k] for k in d.dT)
     assert eq.placas_calent_por_aislacion["tubo_curvas_desnudas"] >= eq.placas_calent_por_aislacion["tubo"]
-    assert eq.placas_calent == eq.placas_calent_por_aislacion["tubo_curvas_desnudas"]
+    assert eq.placas_calent == eq.placas_calent_por_aislacion["tubo"]
 
 
 def _en_espiral(c):
+    # la geometría de v0.2–v1.0: espiral con camisa en bloque y DN automático
     c["equipo"]["holding"]["geometria"]["tipo"] = "espiral"
     c["equipo"]["holding"]["aislacion"]["forma"] = "bloque"
+    c["equipo"]["holding"]["DN_fijo"] = None
 
 
 def test_temperaturas_del_recorrido_en_orden(resultado):

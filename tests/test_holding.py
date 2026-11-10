@@ -200,3 +200,11 @@ def test_DN_fijo_usa_ese_DN_y_avisa():
     t = elegir_tubo([p], DNs, CRIT, 1e5, 1.5, DN_fijo=50)
     assert t.elegido.DN == 50
     assert any("DN50 fijado" in a for a in t.avisos)
+
+
+def test_radio_de_curva_por_DN():
+    geo = Geometria(tipo="horquillas", radio_curva=0.06, radios_curva=((40, 0.06), (50, 0.07)))
+    p = producto(n=0.85, K=0.1)
+    assert evaluar_DN(50, 0.050, [p], CRIT, 1.5, geo, 0.053).horquillas.radio == pytest.approx(0.07)
+    assert evaluar_DN(40, 0.038, [p], CRIT, 1.5, geo, 0.041).horquillas.radio == pytest.approx(0.06)
+    assert geo.radio_para(65) == pytest.approx(0.06)   # sin dato: el de la ficha

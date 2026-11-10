@@ -153,7 +153,8 @@ equipo:
       # rectos unidos por curvas de 180°, en dos planos, subiendo siempre.
       tipo: horquillas
       largo_tramo_max_m: 6.0            # los tubos DIN 11850 vienen de ~6 m [alfalavaldin]
-      radio_curva_m: 0.060              # curva DIN 11852 de DN40, al eje [alfalavaldin]
+      # Curvas DIN 11852, radio al eje por DN [alfalavaldin], p. 1.5.35
+      radio_curva_m: {25: 0.050, 32: 0.055, 40: 0.060, 50: 0.070, 65: 0.080}
       luz_entre_tubos_m: 0.02           # entre tubos vecinos ya aislados (supuesto)
       # Subida continua de al menos 2 %, curvas incluidas, desde el punto más bajo
       # hasta la válvula de desvío [cfia2026htst]. Fija el desnivel: 2 % del largo.
@@ -178,7 +179,7 @@ equipo:
     aislacion:
       # tubo: coquilla a lo largo (decisión de los tutores, 10/11) | bloque: solo con espiral
       forma: tubo
-      curvas_aisladas: false            # las curvas de 180° y sus uniones quedan al aire
+      curvas_aisladas: true             # también las curvas, con tapas desmontables (decisión del 10/11)
       espesor_m: 0.05
       k_W_mK: 0.040                     # lana mineral; mantas de fibra 0,038–0,046 [incropera2007fundamentals], Tabla A.3
       h_ext_W_m2K: 10                   # convección natural + radiación (supuesto; casi no influye)
@@ -188,10 +189,11 @@ equipo:
       holgura_m: 0.05                   # solo bloque: luz entre la espiral y la camisa
       # La aislación del tubo de retención tiene que poder sacarse para inspeccionarlo [cfia2026htst]
     dp_max_bar: 1.0                     # cota inferior del DN: bomba y juntas
-    # DN del tubo: vacío = el más chico que cumple el Δp (DN40). En horquillas el tubo
-    # sube 2 % de su largo: con DN50 queda en 66 m y 1,3 m de desnivel, a cambio de
-    # pedir 10,6 m³/h de CIP en vez de 6,1. Para probarlo:  DN_fijo: 50
-    DN_fijo:
+    # DN del tubo: vacío = el más chico que cumple el Δp (sería DN40). En horquillas el
+    # tubo sube 2 % de su largo, así que el largo es altura: DN50 queda en 66 m y 1,3 m
+    # de desnivel (DN40: 114 m y 2,3 m), a cambio de pedir 10,6 m³/h de CIP en vez de 6,1.
+    # Decisión del 10/11: DN50.
+    DN_fijo: 50
     # El Δp de la yema es proporcional a su K, y K es incierto: la ecuación y la
     # tabla de [gut2003yolk] difieren 23–38 % sobre 48 °C. Se pide que entre con 1,4×.
     factor_seguridad_dp: 1.4

@@ -151,6 +151,14 @@ def _aislacion(d: dict | None) -> Aislacion | None:
     )
 
 
+def _radio(x) -> tuple[float, tuple[tuple[int, float], ...]]:
+    """radio_curva_m puede ser un número (todos los DN) o {DN: R} (curvas DIN por DN)."""
+    if isinstance(x, dict):
+        radios = tuple(sorted((int(k), float(v)) for k, v in x.items()))
+        return radios[0][1], radios
+    return float(x), ()
+
+
 def cargar(ruta: str | Path) -> Config:
     with open(ruta, encoding="utf-8") as f:
         c = yaml.safe_load(f)  # el YAML queda como diccionarios y listas anidados
@@ -191,7 +199,8 @@ def cargar(ruta: str | Path) -> Config:
             t_min_sobre_t_medio=geo.get("t_min_sobre_t_medio", 0.586),
             Dean_min=geo.get("Dean_min", 11.6),
             largo_tramo=geo.get("largo_tramo_max_m", 6.0),
-            radio_curva=geo.get("radio_curva_m", 0.06),
+            radio_curva=_radio(geo.get("radio_curva_m", 0.06))[0],
+            radios_curva=_radio(geo.get("radio_curva_m", 0.06))[1],
             luz=geo.get("luz_entre_tubos_m", 0.02),
             extra_envolvente=extra,
             K1_curva=geo.get("K1_curva", 1000.0),
